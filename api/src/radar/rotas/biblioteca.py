@@ -9,13 +9,15 @@ from radar import db, sessao
 from radar.armazenamento import caminho_capa
 from radar.biblioteca import SELECT_VIDEO, cartao, ficha
 from radar.exemplos import ideias_exemplo
-from radar.nichos import NICHOS
+from radar.nichos import GRUPOS, NICHOS
 from radar.notas import ATENCAO_VIEWS, PROVA_VIEWS, avalia_ideia
 from radar.planos import itens_completos
 
 r = APIRouter(prefix="/api")
 
 _ORDEM = {
+    # em alta: views por dia desde a postagem (até termos 7 dias de histórico por vídeo)
+    "em_alta": "v.views::float / greatest(extract(epoch from now() - v.publicado) / 86400, 1) desc nulls last",
     "views": "v.views desc nulls last",
     "recentes": "v.publicado desc nulls last",
     "salvamentos": "(coalesce(v.salvamentos,0) + coalesce(v.compartilhamentos,0))::float / greatest(v.views,1) desc",
@@ -25,6 +27,24 @@ _ORDEM = {
 @r.get("/nichos")
 async def nichos():
     return [{"id": k, "rotulo": v[0]} for k, v in NICHOS.items()]
+
+
+@r.get("/catalogo")
+async def catalogo(e=Depends(sessao.atual)):
+    """Colunas do Explorar com quantos vídeos reais há em cada nicho e idioma."""
+    por_nicho = {r["n"]: r["c"] for r in await db.todos(
+        "select n, count(*) as c from videos, unnest(nichos) n where sinal_software is not false group by n")}
+    por_idioma = {r["idioma"]: r["c"] for r in await db.todos(
+        "select idioma, count(*) as c from videos where sinal_software is not false group by idioma")}
+    colunas = [
+        {"titulo": titulo, "itens": [{"id": n, "rotulo": NICHOS[n][0], "total": por_nicho.get(n, 0)} for n in ids]}
+        for titulo, ids in GRUPOS
+    ]
+    return {
+        "colunas": colunas,
+        "idiomas": [{"id": "pt", "rotulo": "Português", "total": por_idioma.get("pt", 0)},
+                    {"id": "en", "rotulo": "Inglês", "total": por_idioma.get("en", 0)}],
+    }
 
 
 @r.get("/resumo")
@@ -51,8 +71,9 @@ async def videos(
     e=Depends(sessao.atual),
     idioma: str | None = None,
     prova: Literal["qualquer", "leve", "media", "forte"] = "qualquer",
-    ordem: Literal["views", "recentes", "salvamentos"] = "views",
+    ordem: Literal["em_alta", "views", "recentes", "salvamentos"] = "views",
     termo: str | None = None,
+    nichos: str | None = None,
     so_software: bool = True,
     limite: int = 60,
     pagina: int = 0,
@@ -67,6 +88,9 @@ async def videos(
     if termo:
         onde.append("%s = any(v.termos)")
         params.append(termo)
+    if nichos:
+        onde.append("v.nichos && %s")
+        params.append([n for n in nichos.split(",") if n in NICHOS])
     if so_software:
         onde.append("v.sinal_software is not false")
     limite = min(limite, 120)

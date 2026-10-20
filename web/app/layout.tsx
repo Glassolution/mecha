@@ -7,14 +7,14 @@ const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500", "600"], 
 const logo = Fredoka({ subsets: ["latin"], weight: ["600"], variable: "--f-logo" });
 
 export const metadata: Metadata = {
-  title: "radar — ideias de SaaS em alta",
+  title: "mecha — ideias de SaaS em alta",
   description: "Em 1 minuto, as ideias de SaaS que estão bombando no seu nicho.",
 };
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 
-// Aplica o tema salvo antes da primeira pintura (escuro é o padrão).
-const TEMA = `(function(){try{var t=localStorage.getItem("tema");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}})()`;
+// O site é só escuro: apaga a escolha antiga de tema claro, se existir.
+const TEMA = `(function(){try{localStorage.removeItem("tema")}catch(e){}})()`;
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (

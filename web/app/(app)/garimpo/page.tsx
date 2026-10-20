@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { useApi } from "@/lib/api";
+import { ICONE_FONTE } from "@/lib/fmt";
+import { useFontes } from "@/lib/fontes";
 import { iniciarGarimpo, ErroApi } from "@/lib/garimpo";
 import { useApp } from "@/components/Contexto";
 import { Icone } from "@/components/Icone";
@@ -13,7 +15,6 @@ type Palavra = { termo: string; idioma: string };
 type Nicho = { id: string; rotulo: string };
 type Etiqueta = { termo: string; idioma: string | null };
 
-const ICONE_FONTE: Record<string, string> = { tiktok: "tiktok", youtube: "youtube", tiktok_ads: "anuncio", meta_ads: "anuncio", instagram: "reels" };
 
 // Mesmas pistas do servidor (regra 2): sem certeza, fica sem idioma e o servidor busca nos idiomas do garimpo.
 function adivinhar(t: string): string | null {
@@ -26,7 +27,8 @@ function adivinhar(t: string): string | null {
 export default function MontarGarimpo() {
   const router = useRouter();
   const { eu } = useApp();
-  const { dados: fontes } = useApi<Fonte[]>("/api/fontes");
+  const { dados: fontesDisponiveis } = useApi<Fonte[]>("/api/fontes");
+  const { fontes: escolhidas, alternar: alternarFonte } = useFontes();
   const { dados: nichos } = useApi<Nicho[]>("/api/nichos");
   const [etiquetas, setEtiquetas] = useState<Etiqueta[]>([]);
   const [texto, setTexto] = useState("");
@@ -38,7 +40,7 @@ export default function MontarGarimpo() {
   const [erro, setErro] = useState<{ mensagem: string; botao?: string } | null>(null);
   const campo = useRef<HTMLInputElement>(null);
   const nichoAtivo = nicho || eu?.espaco.nichos[0] || "";
-  const { dados: ideias } = useApi<Palavra[]>(`/api/palavras?idiomas=${idiomas.join(",")}&pagina=${pagina}${nichoAtivo ? `&nicho=${nichoAtivo}` : ""}`);
+  const { dados: ideias } = useApi<Palavra[]>(`/api/palavras?pagina=${pagina}${nichoAtivo ? `&nicho=${nichoAtivo}` : ""}`);
 
   function adicionar(bruto: string, idioma?: string) {
     const termo = bruto.trim().toLowerCase().replace(/\s+/g, " ");
@@ -76,7 +78,7 @@ export default function MontarGarimpo() {
     const termos_idioma: Record<string, string> = {};
     for (const e of etiquetas) if (e.idioma) termos_idioma[e.termo] = e.idioma;
     try {
-      const id = await iniciarGarimpo({ termos: termosFinais, termos_idioma, fontes: ["tiktok"], idiomas, modo });
+      const id = await iniciarGarimpo({ termos: termosFinais, termos_idioma, fontes: escolhidas, idiomas, modo });
       router.push(`/garimpo/${id}`);
     } catch (e) {
       const err = e as ErroApi;
@@ -90,7 +92,7 @@ export default function MontarGarimpo() {
   return (
     <>
       <h1 className="titulo-pagina">Garimpo</h1>
-      <p className="sub-pagina">Escolha palavras. O radar busca cada uma no TikTok e mostra os vídeos chegando ao vivo.</p>
+      <p className="sub-pagina">Escolha palavras. A mecha busca cada uma no TikTok e no Instagram e mostra os vídeos chegando ao vivo.</p>
 
       <div className="montar" style={{ marginTop: 28 }}>
         <section className="painel">
@@ -104,10 +106,10 @@ export default function MontarGarimpo() {
                   className="idioma"
                   style={{ width: "auto", padding: "0 4px" }}
                   onClick={(ev) => { ev.stopPropagation(); trocarIdioma(i); }}
-                  title="Idioma da busca (clique para trocar)"
-                  aria-label={`Idioma de ${e.termo}: ${e.idioma ?? "automático"}. Trocar`}
+                  title="Onde buscar (clique para trocar)"
+                  aria-label={`Onde buscar ${e.termo}: ${e.idioma === "pt" ? "Brasil" : e.idioma === "en" ? "lá fora" : "automático"}. Trocar`}
                 >
-                  {e.idioma ?? "auto"}
+                  {e.idioma === "pt" ? "🇧🇷" : e.idioma === "en" ? "🇺🇸" : "🌎"}
                 </button>
                 <button type="button" onClick={(ev) => { ev.stopPropagation(); setEtiquetas((es) => es.filter((_, j) => j !== i)); }} aria-label={`Tirar ${e.termo}`}>
                   <Icone nome="x" tamanho={14} />
@@ -121,11 +123,11 @@ export default function MontarGarimpo() {
               onChange={(e) => setTexto(e.target.value)}
               onKeyDown={tecla}
               onBlur={() => { if (texto.includes(",")) { texto.split(",").forEach((t) => adicionar(t)); setTexto(""); } }}
-              placeholder={etiquetas.length ? "Mais uma palavra…" : "Ex.: ai for doctors, app para médicos"}
+              placeholder={etiquetas.length ? "Mais uma palavra…" : "Ex.: app para médicos, ia para advogados"}
             />
           </div>
           <p className="fraco" style={{ fontSize: 13, marginTop: 8 }}>
-            Enter ou vírgula adiciona. Cada palavra é buscada só no idioma dela (pt, en ou auto).
+            ⏎ ou vírgula adiciona. Toque na bandeira para escolher onde buscar: 🇧🇷 Brasil, 🇺🇸 lá fora ou 🌎 automático.
           </p>
 
           <div className="secao-titulo">
@@ -148,7 +150,6 @@ export default function MontarGarimpo() {
               return (
                 <button key={p.termo} className="chip" style={{ background: "var(--sunk)", border: "1px solid var(--line)" }} disabled={ja} onClick={() => adicionar(p.termo, p.idioma)}>
                   {ja ? <Icone nome="check" tamanho={14} /> : <Icone nome="mais" tamanho={14} />} {p.termo}
-                  <span className="mono fraco" style={{ fontSize: 11, textTransform: "uppercase" }}>{p.idioma}</span>
                 </button>
               );
             })}
@@ -158,16 +159,24 @@ export default function MontarGarimpo() {
         <aside className="painel">
           <div className="secao-titulo" style={{ marginTop: 0 }}>Onde buscar</div>
           <div className="fontes">
-            {(fontes ?? []).map((f) => (
-              <div key={f.id} className="fonte" aria-pressed={f.aberta} aria-disabled={!f.aberta}>
-                <span className="icone-fonte"><Icone nome={ICONE_FONTE[f.id] ?? "play"} /></span>
-                <span style={{ flex: 1 }}>
-                  <span className="nome">{f.nome}</span>
-                  {!f.aberta && <span className="motivo" style={{ display: "block" }}>{f.motivo}</span>}
-                </span>
-                {f.aberta ? <Icone nome="check" /> : <Icone nome="cadeado" tamanho={16} />}
-              </div>
-            ))}
+            {(fontesDisponiveis ?? []).map((f) => {
+              const ligada = f.aberta && escolhidas.includes(f.id);
+              const corpo = (
+                <>
+                  <span className="icone-fonte"><Icone nome={ICONE_FONTE[f.id] ?? "play"} /></span>
+                  <span style={{ flex: 1 }}>
+                    <span className="nome">{f.nome}</span>
+                    {!f.aberta && <span className="motivo" style={{ display: "block" }}>{f.motivo}</span>}
+                  </span>
+                  {f.aberta ? (ligada ? <Icone nome="check" /> : null) : <Icone nome="cadeado" tamanho={16} />}
+                </>
+              );
+              return f.aberta ? (
+                <button key={f.id} type="button" className="fonte" aria-pressed={ligada} onClick={() => alternarFonte(f.id)}>{corpo}</button>
+              ) : (
+                <div key={f.id} className="fonte" aria-disabled="true">{corpo}</div>
+              );
+            })}
           </div>
 
           <div className="secao-titulo">Idioma</div>

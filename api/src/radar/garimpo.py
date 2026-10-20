@@ -8,16 +8,18 @@ escrita não latina fica de fora.
 import asyncio
 import json
 import logging
+from datetime import datetime, timedelta, timezone
 
 import httpx
 
 from radar import db
 from radar.armazenamento import copiar_capa
 from radar.biblioteca import SELECT_VIDEO, cartao, gravar_video
-from radar.coleta.base import ColetorTikTok, ErroFonte, Parado
+from radar.coleta.base import Coletor, ErroFonte, Parado
 from radar.coleta.regras import escrita_nao_latina, idiomas_do_termo
 from radar.config import config
 from radar.fluxo import publicar
+from radar.nichos import EQUIVALENTE_EN
 
 log = logging.getLogger(__name__)
 
@@ -26,7 +28,7 @@ FONTES = {
     "youtube": {"nome": "YouTube Shorts", "aberta": False, "motivo": "Chega antes do lançamento."},
     "tiktok_ads": {"nome": "TikTok Ads", "aberta": False, "motivo": "Precisa da extensão do Chrome (em breve)."},
     "meta_ads": {"nome": "Facebook e Instagram Ads", "aberta": False, "motivo": "Chega na fase 2."},
-    "instagram": {"nome": "Reels", "aberta": False, "motivo": "Chega na fase 3."},
+    "instagram": {"nome": "Instagram Reels", "aberta": True},
 }
 FINAIS = {"pronto", "erro", "parado", "trancada"}
 CACHE_DIAS = 7
@@ -95,23 +97,33 @@ async def _ligar(garimpo_id: str, ids: list[str], termo: str) -> list[dict]:
     return [cartao(por_id[i]) for i in chegaram if i in por_id]
 
 
-async def _buscar_tiktok(garimpo: dict, coletor: ColetorTikTok, cli: httpx.AsyncClient) -> None:
+_ONDE = {"tiktok": "no TikTok", "instagram": "no Instagram"}
+
+
+def _aceito(v, fonte: str, garimpo: dict) -> bool:
+    """Filtros de cada vídeo: escrita latina, idioma do garimpo e, no Instagram, nada velho demais."""
+    if escrita_nao_latina(v.texto) or (v.idioma is not None and v.idioma not in garimpo["idiomas"]):
+        return False
+    if fonte == "instagram" and v.publicado is not None:
+        return v.publicado >= datetime.now(timezone.utc) - timedelta(days=config().instagram_max_dias)
+    return True
+
+
+async def _buscar_fonte(garimpo: dict, fonte: str, coletor: Coletor, cli: httpx.AsyncClient) -> None:
     gid = str(garimpo["id"])
     deve_parar = lambda: _parado(gid)  # noqa: E731
     novos_total = 0
     for termo in garimpo["termos"]:
-        for idioma in idiomas_do_termo(termo, garimpo["termos_idioma"], garimpo["idiomas"]):
+        for busca, idioma in _buscas(termo, garimpo):
             if await deve_parar():
                 raise Parado()
-            await _fonte(gid, "tiktok", status="buscando", termo=termo, novos=novos_total)
-            await _agora(gid, f"Buscando “{termo}” no TikTok")
-            ids = await _do_cache(termo, "tiktok", idioma)
+            onde = "em inglês" if busca != termo else _ONDE.get(fonte, "")
+            await _fonte(gid, fonte, status="buscando", termo=termo, novos=novos_total)
+            await _agora(gid, f"Buscando “{termo}” {onde}".strip())
+            ids = await _do_cache(busca, fonte, idioma)
             if ids is None:
-                resultado = await coletor.buscar(termo, idioma, config().resultados_por_busca, deve_parar)
-                aceitos = [
-                    v for v in resultado.videos
-                    if not escrita_nao_latina(v.texto) and (v.idioma is None or v.idioma in garimpo["idiomas"])
-                ]
+                resultado = await coletor.buscar(busca, idioma, config().resultados_por_busca, deve_parar)
+                aceitos = [v for v in resultado.videos if _aceito(v, fonte, garimpo)]
                 await _agora(gid, f"Guardando {len(aceitos)} vídeos de “{termo}”")
                 capas = await asyncio.gather(*(copiar_capa(cli, v.id, v.capa_origem) if v.capa_origem else _nada()
                                                for v in aceitos))
@@ -124,9 +136,9 @@ async def _buscar_tiktok(garimpo: dict, coletor: ColetorTikTok, cli: httpx.Async
                             await con.execute("update videos set capa_path = %s where id = %s", (capa, v.id))
                     ids = [v.id for v in aceitos]
                     await con.execute(
-                        """insert into busca_cache (termo, fonte, idioma, buscado_em, video_ids) values (%s, 'tiktok', %s, now(), %s)
+                        """insert into busca_cache (termo, fonte, idioma, buscado_em, video_ids) values (%s, %s, %s, now(), %s)
                            on conflict (termo, fonte, idioma) do update set buscado_em = now(), video_ids = excluded.video_ids""",
-                        (termo, idioma, ids),
+                        (busca, fonte, idioma, ids),
                     )
                     await con.execute("update garimpos set custo_usd = custo_usd + %s where id = %s",
                                       (resultado.custo_usd, gid))
@@ -135,7 +147,17 @@ async def _buscar_tiktok(garimpo: dict, coletor: ColetorTikTok, cli: httpx.Async
             if cartoes:
                 await publicar(gid, "chegou", {"videos": cartoes})
             await _contagens(gid)
-    await _fonte(gid, "tiktok", status="pronto", termo=None, novos=novos_total)
+    await _fonte(gid, fonte, status="pronto", termo=None, novos=novos_total)
+
+
+def _buscas(termo: str, garimpo: dict) -> list[tuple[str, str]]:
+    """O que buscar para uma palavra: ela no idioma dela e, se o garimpo inclui inglês,
+    o equivalente em inglês das sugestões em português (a tela continua mostrando só o português)."""
+    buscas = [(termo, i) for i in idiomas_do_termo(termo, garimpo["termos_idioma"], garimpo["idiomas"])]
+    en = EQUIVALENTE_EN.get(termo)
+    if en and "en" in garimpo["idiomas"] and (en, "en") not in buscas:
+        buscas.append((en, "en"))
+    return buscas
 
 
 async def _nada():
@@ -146,8 +168,11 @@ async def _parado(garimpo_id: str) -> bool:
     return await _status(garimpo_id) in ("parado", None)
 
 
-async def rodar(garimpo_id: str, coletor: ColetorTikTok | None) -> None:
-    """Roda o garimpo inteiro. Idempotente: garimpo já concluído ou parado não roda de novo."""
+async def rodar(garimpo_id: str, coletores: dict[str, Coletor]) -> None:
+    """Roda o garimpo inteiro, uma fonte depois da outra. Idempotente: garimpo já concluído ou parado não roda de novo.
+
+    `coletores` tem um provedor por fonte aberta ({"tiktok": …, "instagram": …}); fonte sem provedor dá erro só nela.
+    """
     gid = str(garimpo_id)
     g = await db.um("select * from garimpos where id = %s", (gid,))
     if not g or g["status"] in ("concluido", "parado", "erro"):
@@ -161,20 +186,24 @@ async def rodar(garimpo_id: str, coletor: ColetorTikTok | None) -> None:
 
     erros = 0
     async with httpx.AsyncClient(timeout=20) as cli:
-        if "tiktok" in g["fontes"]:
+        for fonte in [f for f in g["fontes"] if FONTES.get(f, {}).get("aberta")]:
+            if await _parado(gid):
+                break
+            nome = FONTES[fonte]["nome"]
             try:
+                coletor = coletores.get(fonte)
                 if coletor is None:
-                    raise ErroFonte("O TikTok ainda não foi conectado ao servidor.")
-                await _buscar_tiktok(g, coletor, cli)
+                    raise ErroFonte(f"O {nome} ainda não foi conectado ao servidor.")
+                await _buscar_fonte(g, fonte, coletor, cli)
             except Parado:
-                pass
+                break
             except ErroFonte as e:
                 erros += 1
-                await _fonte(gid, "tiktok", status="erro", detalhe=e.motivo)
+                await _fonte(gid, fonte, status="erro", detalhe=e.motivo)
             except Exception:
                 erros += 1
-                log.exception("garimpo %s: falha no TikTok", gid)
-                await _fonte(gid, "tiktok", status="erro", detalhe="Algo deu errado nesta busca. Tente de novo em 1 minuto.")
+                log.exception("garimpo %s: falha no %s", gid, fonte)
+                await _fonte(gid, fonte, status="erro", detalhe="Algo deu errado nesta busca. Tente de novo em 1 minuto.")
 
     status = await _status(gid)
     if status == "parado":

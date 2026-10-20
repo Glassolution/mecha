@@ -21,7 +21,7 @@ async def _eventos(gid: str) -> list[tuple[str, dict]]:
 async def test_garimpo_do_zero_ao_fim(cliente):
     gid = await _criar(cliente)
     coletor = ColetorSimulado(por_busca=3)
-    await garimpo.rodar(gid, coletor)
+    await garimpo.rodar(gid, {"tiktok": coletor})
 
     assert coletor.chamadas == [("ai for doctors", "en"), ("app para médicos", "pt")]  # cada palavra no idioma dela
     g = (await cliente.get(f"/api/garimpos/{gid}")).json()
@@ -36,17 +36,17 @@ async def test_garimpo_do_zero_ao_fim(cliente):
 
 async def test_rodar_duas_vezes_nao_duplica(cliente):
     gid = await _criar(cliente)
-    await garimpo.rodar(gid, ColetorSimulado())
+    await garimpo.rodar(gid, {"tiktok": ColetorSimulado()})
     await db.executar("update garimpos set status = 'garimpando' where id = %s", (gid,))  # trabalhador reiniciado
-    await garimpo.rodar(gid, ColetorSimulado())
+    await garimpo.rodar(gid, {"tiktok": ColetorSimulado()})
     assert (await db.um("select count(*) as n from garimpo_videos where garimpo_id = %s", (gid,)))["n"] == 6
 
 
 async def test_cache_de_7_dias_nao_chama_o_provedor(cliente):
-    await garimpo.rodar(await _criar(cliente), ColetorSimulado())
+    await garimpo.rodar(await _criar(cliente), {"tiktok": ColetorSimulado()})
     segundo = ColetorSimulado()
     gid = await _criar(cliente)
-    await garimpo.rodar(gid, segundo)
+    await garimpo.rodar(gid, {"tiktok": segundo})
     assert segundo.chamadas == []
     assert (await cliente.get(f"/api/garimpos/{gid}")).json()["vistos"] == 6
 
@@ -62,7 +62,7 @@ async def test_parar_deixa_parado_e_o_que_chegou_fica(cliente):
             return r
 
     coletor = ParaNoSegundo()
-    await garimpo.rodar(gid, coletor)
+    await garimpo.rodar(gid, {"tiktok": coletor})
     g = (await cliente.get(f"/api/garimpos/{gid}")).json()
     assert g["status"] == "parado"
     assert len(coletor.chamadas) == 1  # conferiu o Parar antes da palavra seguinte
@@ -71,7 +71,7 @@ async def test_parar_deixa_parado_e_o_que_chegou_fica(cliente):
 
 async def test_erro_da_fonte_aparece_com_o_motivo(cliente):
     gid = await _criar(cliente, fontes=["tiktok", "youtube"])
-    await garimpo.rodar(gid, ColetorSimulado(erro=ErroFonte("O limite de buscas do TikTok deste mês acabou.")))
+    await garimpo.rodar(gid, {"tiktok": ColetorSimulado(erro=ErroFonte("O limite de buscas do TikTok deste mês acabou."))})
     g = (await cliente.get(f"/api/garimpos/{gid}")).json()
     assert g["status"] == "erro"
     assert g["por_fonte"]["tiktok"]["status"] == "erro"
@@ -111,7 +111,7 @@ async def test_sem_sessao_nao_entra(cliente):
 
 async def test_planilha_abre_no_excel(cliente):
     gid = await _criar(cliente)
-    await garimpo.rodar(gid, ColetorSimulado())
+    await garimpo.rodar(gid, {"tiktok": ColetorSimulado()})
     col = (await cliente.post("/api/colecoes", json={"nome": "Médicos"})).json()
     vid = (await cliente.get(f"/api/garimpos/{gid}/videos")).json()[0]["id"]
     assert (await cliente.post("/api/salvos", json={"colecao_id": str(col["id"]), "item_tipo": "video", "item_id": vid})).status_code == 200
@@ -124,9 +124,86 @@ async def test_planilha_abre_no_excel(cliente):
 
 async def test_eventos_tem_id_para_retomar(cliente):
     gid = await _criar(cliente)
-    await garimpo.rodar(gid, ColetorSimulado())
+    await garimpo.rodar(gid, {"tiktok": ColetorSimulado()})
     todos = await fluxo.ler(gid, "0-0", bloquear_ms=10)
     meio = todos[len(todos) // 2][0]
     depois = await fluxo.ler(gid, meio, bloquear_ms=10)
     assert [e[0] for e in depois] == [e[0] for e in todos[len(todos) // 2 + 1:]]
     assert json.dumps(depois[-1][2])  # dados serializáveis
+
+
+async def test_explorar_em_alta_e_filtro_por_nicho(cliente):
+    from datetime import datetime, timedelta, timezone
+
+    agora = datetime.now(timezone.utc)
+    async with db.conexao() as con:
+        # vídeo novo com menos views ganha do antigo com mais views em "em alta"
+        await gravar_video(con, video_simulado(1, views=900_000, publicado=agora - timedelta(days=300)), "ai tool")
+        await gravar_video(con, video_simulado(2, views=200_000, publicado=agora - timedelta(days=2),
+                                               texto="[SIMULADO] app para médico"), "app para médicos")
+    em_alta = (await cliente.get("/api/videos?ordem=em_alta")).json()["itens"]
+    assert [v["id"] for v in em_alta] == ["tt:sim2", "tt:sim1"]
+    assert em_alta[0]["views_dia"] == 100_000
+    saude = (await cliente.get("/api/videos?nichos=saude")).json()
+    assert [v["id"] for v in saude["itens"]] == ["tt:sim2"]
+    cat = (await cliente.get("/api/catalogo")).json()
+    setores = next(c for c in cat["colunas"] if c["titulo"] == "Setores")
+    assert next(i for i in setores["itens"] if i["id"] == "saude")["total"] == 1
+
+
+async def test_sugestao_em_portugues_busca_tambem_o_equivalente_em_ingles(cliente):
+    gid = await _criar(cliente, termos=["app para médicos"], idiomas=["pt", "en"])
+    coletor = ColetorSimulado()
+    await garimpo.rodar(gid, {"tiktok": coletor})
+    assert coletor.chamadas == [("app para médicos", "pt"), ("ai for doctors", "en")]
+    g = (await cliente.get(f"/api/garimpos/{gid}")).json()
+    assert g["termos"] == ["app para médicos"] and g["vistos"] == 6  # a tela só mostra o português
+
+    so_pt = await _criar(cliente, termos=["app para advogados"], idiomas=["pt"])
+    coletor_pt = ColetorSimulado()
+    await garimpo.rodar(so_pt, {"tiktok": coletor_pt})
+    assert coletor_pt.chamadas == [("app para advogados", "pt")]
+
+
+async def test_ideias_de_palavras_so_em_portugues(cliente):
+    ideias = (await cliente.get("/api/palavras?nicho=saude")).json()
+    assert len(ideias) == 8 and all(i["idioma"] == "pt" for i in ideias)
+    assert "ai for doctors" not in [i["termo"] for i in ideias]
+
+
+async def test_tiktok_e_instagram_no_mesmo_garimpo(cliente):
+    from datetime import datetime, timedelta, timezone
+
+    from radar.coleta.base import ResultadoBusca
+
+    class InstagramSimulado(ColetorSimulado):
+        async def buscar(self, termo, idioma, limite, deve_parar):
+            self.chamadas.append((termo, idioma))
+            agora = datetime.now(timezone.utc)
+            return ResultadoBusca([
+                video_simulado(1, id=f"ig:novo{len(self.chamadas)}", fonte="instagram", idioma=idioma, publicado=agora),
+                video_simulado(2, id=f"ig:velho{len(self.chamadas)}", fonte="instagram", publicado=agora - timedelta(days=500)),
+                video_simulado(3, id=f"ig:es{len(self.chamadas)}", fonte="instagram", idioma="es", publicado=agora),
+            ], custo_usd=0.03)
+
+    gid = await _criar(cliente, fontes=["tiktok", "instagram"])
+    instagram = InstagramSimulado()
+    await garimpo.rodar(gid, {"tiktok": ColetorSimulado(por_busca=2), "instagram": instagram})
+
+    g = (await cliente.get(f"/api/garimpos/{gid}")).json()
+    assert g["status"] == "concluido"
+    assert g["por_fonte"]["tiktok"]["status"] == "pronto" and g["por_fonte"]["instagram"]["status"] == "pronto"
+    assert len(instagram.chamadas) == 2  # as duas palavras também no Instagram
+    grade = (await cliente.get(f"/api/garimpos/{gid}/videos")).json()
+    reels = [v for v in grade if v["fonte"] == "instagram"]
+    assert len(reels) == 2 and all(v["id"].startswith("ig:novo") for v in reels)  # velho e espanhol ficaram de fora
+    assert len([v for v in grade if v["fonte"] == "tiktok"]) == 4
+
+
+async def test_erro_no_instagram_nao_derruba_o_tiktok(cliente):
+    gid = await _criar(cliente, fontes=["tiktok", "instagram"])
+    await garimpo.rodar(gid, {"tiktok": ColetorSimulado(), "instagram": ColetorSimulado(erro=ErroFonte("O Instagram não respondeu agora."))})
+    g = (await cliente.get(f"/api/garimpos/{gid}")).json()
+    assert g["status"] == "concluido"
+    assert g["por_fonte"]["tiktok"]["status"] == "pronto"
+    assert g["por_fonte"]["instagram"] == {**g["por_fonte"]["instagram"], "status": "erro", "detalhe": "O Instagram não respondeu agora."}

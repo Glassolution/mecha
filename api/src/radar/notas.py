@@ -90,7 +90,10 @@ def avalia_video(v: dict, criterios: dict | None = None) -> dict:
         fmt = (av or {}).get("formato")
         itens.append(_item("formato", None if fmt is None else fmt in c["formatos"], f"Formato: {fmt or 'falta avaliar'}"))
     vert = v.get("vertical")
-    itens.append(_item("vertical", vert, "Tela vertical" if vert else ("Tela deitada" if vert is False else "Tela: medindo")))
+    if vert is None and v.get("largura") and v.get("largura") == v.get("altura"):
+        itens.append(_item("vertical", None, "Tela quadrada (confira no vídeo)"))
+    else:
+        itens.append(_item("vertical", vert, "Tela vertical" if vert else ("Tela deitada" if vert is False else "Tela: medindo")))
     dur = v.get("duracao_s")
     if dur is None:
         itens.append(_item("duracao", None, "Duração: medindo"))

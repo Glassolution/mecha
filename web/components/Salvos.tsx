@@ -64,7 +64,7 @@ export function Salvos({ colecaoId }: { colecaoId: string | null }) {
             <Vazio
               titulo="Nada salvo ainda."
               texto="Salve vídeos e ideias para juntar referências por nicho ou por cliente."
-              acao={<Link className="bt1" href="/ideias?modo=criativo">Ver vídeos</Link>}
+              acao={<Link className="bt1" href="/garimpo">Fazer um garimpo</Link>}
             />
           )}
           {colecaoId && <DetalheColecao id={colecaoId} aoApagar={async () => { limparCache("/api/colecoes"); await recarregar(); router.replace("/salvos"); avisar("Coleção apagada"); }} />}

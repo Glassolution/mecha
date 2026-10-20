@@ -1,6 +1,6 @@
-"""Interface comum dos provedores de TikTok (docs/radar-saas.md seção 14, regra 1).
+"""Interface comum dos provedores de vídeo (TikTok, Instagram…; docs/radar-saas.md seção 14, regra 1).
 
-Dois provedores trocáveis ficam atrás de ColetorTikTok, para que um bloqueio não derrube o produto.
+Cada fonte tem um provedor atrás de Coletor, trocável, para que um bloqueio não derrube o produto.
 """
 
 from dataclasses import dataclass, field
@@ -58,9 +58,9 @@ class ResultadoBusca:
 DeveParar = Callable[[], Awaitable[bool]]
 
 
-class ColetorTikTok(Protocol):
+class Coletor(Protocol):
     nome: str
 
     async def buscar(self, termo: str, idioma: str, limite: int, deve_parar: DeveParar) -> ResultadoBusca:
-        """Busca vídeos de uma palavra (e da hashtag equivalente) no país do idioma."""
+        """Busca vídeos de uma palavra no idioma pedido."""
         ...

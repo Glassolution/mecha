@@ -26,7 +26,7 @@ export const PLATAFORMA: Record<string, string> = {
   youtube: "YouTube",
   tiktok_ads: "TikTok Ads",
   meta_ads: "Facebook",
-  instagram: "Reels",
+  instagram: "Instagram",
 };
 
 export const MODELO: Record<string, string> = {
@@ -42,6 +42,14 @@ export const IDIOMA: Record<string, string> = { pt: "Português", en: "Inglês",
 export function tiktokId(id: string): string | null {
   return id.startsWith("tt:") ? id.slice(3) : null;
 }
+
+/** Código do Reel ("ig:DOq0Ui7jxaz" -> "DOq0Ui7jxaz"), para o player oficial do Instagram. */
+export function instagramCodigo(id: string): string | null {
+  return id.startsWith("ig:") ? id.slice(3) : null;
+}
+
+/** Ícone de cada fonte de vídeo. */
+export const ICONE_FONTE: Record<string, string> = { tiktok: "tiktok", instagram: "instagram", youtube: "youtube", tiktok_ads: "anuncio", meta_ads: "anuncio" };
 
 export function quando(iso: string | null | undefined): string {
   if (!iso) return "";

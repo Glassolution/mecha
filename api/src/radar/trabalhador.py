@@ -8,6 +8,7 @@ import logging
 from arq.connections import RedisSettings
 
 from radar import db, garimpo
+from radar.coleta.apify_instagram import ApifyInstagram
 from radar.coleta.apify_tiktok import ApifyTikTok
 from radar.config import config
 
@@ -17,10 +18,14 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 async def ao_iniciar(ctx):
     await db.abrir()
     cfg = config()
-    ctx["coletor"] = (
-        ApifyTikTok(cfg.apify_token.get_secret_value(), cfg.apify_actor, cfg.buscar_hashtag)
-        if cfg.apify_token else None
-    )
+    # um provedor por fonte; sem a chave da Apify, nenhum (o garimpo mostra o erro em cada fonte)
+    ctx["coletores"] = {}
+    if cfg.apify_token:
+        token = cfg.apify_token.get_secret_value()
+        ctx["coletores"] = {
+            "tiktok": ApifyTikTok(token, cfg.apify_actor, cfg.buscar_hashtag),
+            "instagram": ApifyInstagram(token, cfg.apify_actor_instagram),
+        }
 
 
 async def ao_parar(ctx):
@@ -28,7 +33,7 @@ async def ao_parar(ctx):
 
 
 async def rodar_garimpo(ctx, garimpo_id: str):
-    await garimpo.rodar(garimpo_id, ctx["coletor"])
+    await garimpo.rodar(garimpo_id, ctx["coletores"])
 
 
 class Trabalhador:

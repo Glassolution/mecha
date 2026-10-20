@@ -73,3 +73,29 @@ def hashtag_do_termo(termo: str) -> str:
 
 def normalizar_termo(termo: str) -> str:
     return re.sub(r"\s+", " ", termo).strip().lower()
+
+
+# Idioma de um texto (legenda de Reel): palavras comuns que só existem em uma das três línguas.
+_PALAVRAS_IDIOMA = {
+    "pt": set("você voce vocês voces não nao são sao então entao também tambem muito isso esse essa isto uma com pra "
+              "seu sua meu minha mais quer aqui já só sem ainda faz fazer tem ter ele ela eu nós gente agora melhor "
+              "dinheiro trabalho hoje porque quando onde".split()),
+    "es": set("usted tú el los las del una con es muy pero qué aquí también más sin todavía hoy puedes tienes hola yo "
+              "nosotros ahora mejor dinero trabajo cuando donde salud ustedes eres sos".split()),
+    "en": set("the and you your this that with for is are how what my it to of in on we can just now money work "
+              "today when where".split()),
+}
+_LETRAS_IDIOMA = {"pt": re.compile(r"[ãõç]", re.I), "es": re.compile(r"[ñ¿¡]", re.I)}
+
+
+def idioma_do_texto(texto: str | None) -> str | None:
+    """'pt', 'en' ou 'es' quando o texto deixa claro; None quando é curto ou misturado demais."""
+    if not texto:
+        return None
+    palavras = re.findall(r"[a-záéíóúâêôãõçñü]+", texto.lower())
+    pontos = {i: sum(p in conj for p in palavras) for i, conj in _PALAVRAS_IDIOMA.items()}
+    for i, rx in _LETRAS_IDIOMA.items():
+        pontos[i] += 2 * len(rx.findall(texto))
+    ordem = sorted(pontos.items(), key=lambda x: -x[1])
+    (melhor, p1), (_, p2) = ordem[0], ordem[1]
+    return melhor if p1 >= 2 and p1 > p2 else None

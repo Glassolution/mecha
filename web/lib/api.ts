@@ -9,15 +9,15 @@ export class ErroApi extends Error {
 }
 
 /** Chama a nossa API (mesma origem; o cookie de sessão vai junto, nenhuma chave passa pelo navegador). */
-export async function api<T = unknown>(caminho: string, init?: RequestInit & { json?: unknown }): Promise<T> {
-  const { json, ...resto } = init ?? {};
+export async function api<T = unknown>(caminho: string, init?: RequestInit & { json?: unknown; silencioso?: boolean }): Promise<T> {
+  const { json, silencioso, ...resto } = init ?? {};
   const r = await fetch(caminho, {
     ...resto,
     credentials: "same-origin",
     headers: { ...(json !== undefined ? { "Content-Type": "application/json" } : {}), ...resto.headers },
     body: json !== undefined ? JSON.stringify(json) : resto.body,
   });
-  if (r.status === 401 && typeof window !== "undefined" && !location.pathname.startsWith("/entrar")) {
+  if (r.status === 401 && !silencioso && typeof window !== "undefined" && !location.pathname.startsWith("/entrar")) {
     location.href = "/entrar";
   }
   if (!r.ok) {

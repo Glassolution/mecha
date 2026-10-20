@@ -90,3 +90,41 @@ def test_ideia_sem_historico_mostra_medindo():
     ideia = {"views_total": 2_000_000, "crescimento": None, "videos": 2, "autores": 2}
     tendencia = next(i for i in avalia_ideia(ideia)["itens"] if i["k"] == "tendencia")
     assert tendencia["ok"] is None and "medindo" in tendencia["txt"]
+
+
+def test_nicho_por_palavras():
+    from radar.coleta.nicho_texto import nichos_do_texto
+
+    assert nichos_do_texto("Esse app ajuda o médico a escrever o prontuário") == ["saude"]
+    assert "dev" in nichos_do_texto("I built an app with no-code in a weekend")
+    assert nichos_do_texto("receita de bolo") == ["vida_pessoal"]
+    assert nichos_do_texto("bom dia", None) == []
+    assert len(nichos_do_texto("médico advogado corretor de imóveis loja virtual")) == 2
+
+
+def test_idioma_da_legenda():
+    from radar.coleta.regras import idioma_do_texto
+
+    assert idioma_do_texto("Quer saber como eu uso as melhores IAs para advogados no meu escritório?") == "pt"
+    assert idioma_do_texto("¡Todo el control de tu salud en tu celular! Si sos afiliado, la app oficial") == "es"
+    assert idioma_do_texto("You can build something like CalAI too. It was built with AI tools") == "en"
+    assert idioma_do_texto("Building MicroSaaS #saas") is None  # curto demais para saber
+    assert idioma_do_texto(None) is None
+
+
+def test_converte_reel_do_instagram():
+    from radar.coleta.apify_instagram import ApifyInstagram
+
+    item = {
+        "shortCode": "DOq0Ui7jxaz", "type": "Video", "url": "https://www.instagram.com/p/DOq0Ui7jxaz/",
+        "caption": "Quer saber como eu uso as melhores IAs para advogados no meu escritório?",
+        "ownerUsername": "dra.ana", "ownerFullName": "Dra. Ana", "timestamp": "2026-09-03T12:00:00.000Z",
+        "videoPlayCount": 88770, "likesCount": -1, "commentsCount": 1482, "sharesCount": 40,
+        "videoDuration": 41.6, "dimensionsWidth": 720, "dimensionsHeight": 1280, "hashtags": ["ia"],
+        "displayUrl": "https://scontent.cdninstagram.com/capa.jpg",
+    }
+    v = ApifyInstagram._converter(item)
+    assert v.id == "ig:DOq0Ui7jxaz" and v.fonte == "instagram" and v.idioma == "pt"
+    assert v.views == 88770 and v.likes is None  # curtidas escondidas pelo criador
+    assert v.autor == "@dra.ana" and v.duracao_s == 42 and v.vertical
+    assert ApifyInstagram._converter({**item, "type": "Image"}) is None

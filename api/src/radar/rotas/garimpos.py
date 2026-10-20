@@ -34,8 +34,8 @@ async def fontes():
 
 
 @r.get("/palavras")
-async def palavras(nicho: str | None = None, idiomas: str = "pt,en", pagina: int = 0):
-    return sugerir_palavras(nicho, [i for i in idiomas.split(",") if i], pagina)
+async def palavras(nicho: str | None = None, pagina: int = 0):
+    return sugerir_palavras(nicho, pagina)
 
 
 class NovoGarimpo(BaseModel):

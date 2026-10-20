@@ -19,9 +19,16 @@ class Config(BaseSettings):
 
     apify_token: SecretStr | None = None
     apify_actor: str = "clockworks~tiktok-scraper"
+    apify_actor_instagram: str = "apify~instagram-hashtag-scraper"
+    # Reels mais velhos que isto ficam de fora (o Instagram não deixa pedir só os recentes)
+    instagram_max_dias: int = 365
     # vídeos por busca e por hashtag em cada palavra (cada vídeo custa ~US$ 0,0037)
     resultados_por_busca: int = 12
     buscar_hashtag: bool = True
+
+    supabase_url: str | None = None
+    # e-mails dos donos: no primeiro login ficam com o espaço de desenvolvimento e o plano Pro
+    donos: str = ""
 
     site_url: str = "http://localhost:3000"
     cookie_seguro: bool = False  # True em produção (HTTPS)

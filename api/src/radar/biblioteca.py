@@ -2,12 +2,13 @@
 
 import json
 from dataclasses import asdict
-from datetime import date
+from datetime import date, datetime, timezone
 
 from psycopg import AsyncConnection
 
 from radar.armazenamento import url_capa
 from radar.coleta.base import VideoBruto
+from radar.coleta.nicho_texto import nichos_do_texto
 from radar.coleta.regras import tem_sinal_software
 from radar.notas import avalia_video, fmt_num, prova_organico
 
@@ -29,15 +30,16 @@ async def gravar_video(con: AsyncConnection, v: VideoBruto, termo: str) -> bool:
     atualiza = ", ".join(f"{c} = coalesce(excluded.{c}, videos.{c})" for c in _COLUNAS)
     cur = await con.execute(
         f"""
-        insert into videos (id, {", ".join(_COLUNAS)}, hashtags, termos)
-        values (%s, {", ".join(["%s"] * len(_COLUNAS))}, %s, %s)
+        insert into videos (id, {", ".join(_COLUNAS)}, hashtags, termos, nichos)
+        values (%s, {", ".join(["%s"] * len(_COLUNAS))}, %s, %s, %s)
         on conflict (id) do update set {atualiza},
           hashtags = case when cardinality(excluded.hashtags) > 0 then excluded.hashtags else videos.hashtags end,
+          nichos = case when cardinality(excluded.nichos) > 0 then excluded.nichos else videos.nichos end,
           termos = (select array(select distinct unnest(videos.termos || excluded.termos))),
           visto_ultimo = now()
         returning (xmax = 0) as novo
         """,
-        [v.id, *valores, v.hashtags, [termo]],
+        [v.id, *valores, v.hashtags, [termo], nichos_do_texto(v.texto, v.transcricao, " ".join(v.hashtags))],
     )
     novo = (await cur.fetchone())["novo"]
     if v.views is not None:
@@ -55,6 +57,14 @@ def _metrica(v: dict) -> str:
     if v["fonte"] == "tiktok_ads":
         return f"{fmt_num(v.get('likes'))} curtidas"
     return f"{v.get('dias_no_ar') or 0} dias no ar"
+
+
+def _views_dia(v: dict) -> int | None:
+    """Views por dia desde a postagem: o sinal de "em alta" enquanto não há histórico de 7 dias."""
+    if not v.get("views") or not v.get("publicado"):
+        return None
+    dias = max((datetime.now(timezone.utc) - v["publicado"]).total_seconds() / 86400, 1)
+    return round(v["views"] / dias)
 
 
 def cartao(v: dict, bloqueado: bool = False) -> dict:
@@ -81,6 +91,8 @@ def cartao(v: dict, bloqueado: bool = False) -> dict:
         "publicado": v.get("publicado"),
         "url_original": v["url_original"],
         "prova": prova_organico(v.get("views"), v.get("compartilhamentos"), v.get("salvamentos")),
+        "views_dia": _views_dia(v),
+        "nichos": v.get("nichos") or [],
         "nota": (v.get("avaliacao") or {}).get("nota"),
     }
 

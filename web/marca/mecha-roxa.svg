@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="1024" height="1024">
+  <defs>
+    <radialGradient id="corpo" cx="38%" cy="28%" r="85%">
+      <stop offset="0%" stop-color="#ae5eff"/>
+      <stop offset="100%" stop-color="#9f45ff"/>
+    </radialGradient>
+    <filter id="suave" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="0.6"/></filter>
+  </defs>
+  <g transform="translate(0 4)">
+    
+    <g stroke="#9f45ff" stroke-width="4.2" stroke-linecap="round">
+      <path d="M12 31 L19 34.5"/><path d="M17.5 21.5 L22.5 27.5"/><path d="M27.5 15.5 L29 23"/>
+    </g>
+    <g fill="url(#corpo)" filter="url(#suave)">
+      <circle cx="44" cy="58" r="16"/><circle cx="60" cy="44" r="20"/><circle cx="76" cy="58" r="15"/>
+      <rect x="28" y="54" width="62" height="22" rx="11"/>
+    </g>
+    <path d="M67 48 q5.5 -4.5 11 0" fill="none" stroke="#0a0a0a" stroke-width="3.2" stroke-linecap="round"/>
+    <path d="M31 61 L18 76" stroke="#0a0a0a" stroke-width="8" stroke-linecap="round"/>
+    <path d="M31 61 L18 76" stroke="#9f45ff" stroke-width="3.6" stroke-linecap="round"/>
+    <circle cx="26" cy="67" r="6.2" fill="url(#corpo)" filter="url(#suave)"/>
+    <circle cx="42" cy="46" r="17.5" fill="#0a0a0a"/>
+    <circle cx="42" cy="46" r="15" fill="#9f45ff"/>
+    <circle cx="42" cy="46" r="11.6" fill="#f2f2f2"/>
+    <ellipse cx="43" cy="46.5" rx="5.6" ry="8" fill="#0a0a0a"/>
+    <ellipse cx="41.2" cy="43" rx="1.7" ry="2.3" fill="#ffffff"/>
+  </g>
+</svg>

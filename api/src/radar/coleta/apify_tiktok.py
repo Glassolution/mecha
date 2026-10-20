@@ -10,32 +10,23 @@ from datetime import datetime
 
 import httpx
 
-from radar.coleta.base import DeveParar, ErroFonte, Parado, ResultadoBusca, VideoBruto
+from radar.coleta.apify import API, ApifyBase
+from radar.coleta.base import DeveParar, ResultadoBusca, VideoBruto
 from radar.coleta.legendas import vtt_para_texto
 from radar.coleta.regras import PAIS_DO_IDIOMA, hashtag_do_termo
 
 log = logging.getLogger(__name__)
-
-API = "https://api.apify.com/v2"
 # código de idioma do TikTok nas legendas -> nosso código
 _IDIOMA_LEGENDA = {"por": "pt", "pt": "pt", "eng": "en", "en": "en", "spa": "es", "es": "es"}
 
 
-class ApifyTikTok:
+class ApifyTikTok(ApifyBase):
     nome = "apify"
+    rotulo = "TikTok"
 
     def __init__(self, token: str, actor: str, buscar_hashtag: bool = True, pausa_s: float = 3.0):
-        self._token = token
-        self._actor = actor
+        super().__init__(token, actor, pausa_s)
         self._buscar_hashtag = buscar_hashtag
-        self._pausa = pausa_s
-
-    def _cliente(self) -> httpx.AsyncClient:
-        return httpx.AsyncClient(
-            base_url=API,
-            headers={"Authorization": f"Bearer {self._token}"},
-            timeout=httpx.Timeout(60, connect=15),
-        )
 
     async def buscar(self, termo: str, idioma: str, limite: int, deve_parar: DeveParar) -> ResultadoBusca:
         entrada = {
@@ -50,53 +41,11 @@ class ApifyTikTok:
             "shouldDownloadCovers": False,
         }
         async with self._cliente() as cli:
-            run = await self._pedir(cli, "POST", f"/acts/{self._actor}/runs", json=entrada)
-            run_id = run["id"]
-            try:
-                run = await self._esperar(cli, run_id, deve_parar)
-            except Parado:
-                await self._pedir(cli, "POST", f"/actor-runs/{run_id}/abort")
-                raise
-            itens = await self._pedir(
-                cli, "GET", f"/datasets/{run['defaultDatasetId']}/items", params={"clean": "true", "format": "json"}
-            )
+            run, itens = await self._rodar(cli, entrada, deve_parar)
             videos = [v for v in (self._converter(i, idioma) for i in itens) if v]
             await self._legendas(cli, videos, itens, idioma)
             custo = float(run.get("usageTotalUsd") or 0)
             return ResultadoBusca(videos=videos, custo_usd=custo)
-
-    async def _esperar(self, cli: httpx.AsyncClient, run_id: str, deve_parar: DeveParar) -> dict:
-        while True:
-            if await deve_parar():
-                raise Parado()
-            run = await self._pedir(cli, "GET", f"/actor-runs/{run_id}")
-            status = run.get("status")
-            if status == "SUCCEEDED":
-                return run
-            if status in ("FAILED", "ABORTED", "TIMED-OUT"):
-                raise ErroFonte("O TikTok não respondeu agora. Tente de novo em 1 minuto.")
-            await asyncio.sleep(self._pausa)
-
-    async def _pedir(self, cli: httpx.AsyncClient, metodo: str, caminho: str, **kw):
-        for tentativa in range(5):
-            try:
-                r = await cli.request(metodo, caminho, **kw)
-            except httpx.HTTPError:
-                if tentativa == 4:
-                    raise ErroFonte("Sem conexão com o provedor do TikTok. Tente de novo em 1 minuto.")
-                await asyncio.sleep(2**tentativa)
-                continue
-            if r.status_code == 401:
-                raise ErroFonte("A conexão com o provedor do TikTok não foi aceita. Avise o suporte.")
-            if r.status_code in (402, 403):
-                raise ErroFonte("O limite de buscas do TikTok deste mês acabou.")
-            if r.status_code == 429 or r.status_code >= 500:
-                await asyncio.sleep(2**tentativa)
-                continue
-            r.raise_for_status()
-            corpo = r.json()
-            return corpo["data"] if isinstance(corpo, dict) and "data" in corpo else corpo
-        raise ErroFonte("O TikTok não respondeu agora. Tente de novo em 1 minuto.")
 
     @staticmethod
     def _converter(item: dict, idioma_busca: str) -> VideoBruto | None:
@@ -129,7 +78,8 @@ class ApifyTikTok:
             duracao_s=meta.get("duration"),
             largura=largura,
             altura=altura,
-            vertical=(altura > largura) if largura and altura else None,
+            # o TikTok às vezes informa medidas quadradas; quadrado não é deitado
+            vertical=(altura > largura) if largura and altura and largura != altura else None,
             publicado=publicado,
         )
 

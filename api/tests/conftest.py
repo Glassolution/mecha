@@ -5,9 +5,11 @@ import tempfile
 
 os.environ["DATABASE_URL"] = "postgresql://localhost/radar_teste"
 os.environ["REDIS_URL"] = "redis://localhost:6379/1"
-os.environ["AMBIENTE"] = "dev"
+os.environ["AMBIENTE"] = "teste"
 os.environ["PASTA_DADOS"] = tempfile.mkdtemp(prefix="radar-teste-")
 os.environ["APIFY_TOKEN"] = ""  # os testes nunca chamam o provedor de verdade
+os.environ["SUPABASE_URL"] = "https://teste.supabase.co"  # tokens assinados por uma chave de teste
+os.environ["DONOS"] = "dono@teste.com"
 
 import httpx  # noqa: E402
 import pytest  # noqa: E402

@@ -22,6 +22,8 @@ export type Video = {
   url_original: string;
   prova: number | null;
   nota: number | null;
+  views_dia: number | null;
+  nichos: string[];
 };
 
 export type FichaVideo = Video & {
@@ -93,7 +95,11 @@ export type Eu = {
     idioma: string;
     ver_ingles: boolean;
     boas_vindas_ok: boolean;
+    perfil: "founder" | "empresario" | "investidor" | "passeando" | null;
+    objetivo: "ideias" | "criativos" | "os_dois" | null;
   };
+  /** o negócio online da pessoa (SaaS, app, loja, infoproduto…) */
+  meu_saas: { nome: string; tipo: "saas" | "app" | "ecommerce" | "infoproduto" | "servico" | "marketplace" | "conteudo" | "outro" | null; link: string | null; o_que_faz: string | null } | null;
   plano: { id: string; nome: string; garimpos: number };
   uso: { garimpos: number; planos_ideia: number };
 };
