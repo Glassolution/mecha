@@ -9,6 +9,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from radar import db, sessao
+from radar.armazenamento import url_capa
 from radar.biblioteca import SELECT_VIDEO, cartao
 from radar.exemplos import ideias_exemplo
 from radar.notas import fmt_num, prova_organico
@@ -32,7 +33,7 @@ async def _colecao(colecao_id: str, e: dict) -> dict:
 
 @r.get("/colecoes")
 async def colecoes(e=Depends(sessao.atual)):
-    return await db.todos(
+    cs = await db.todos(
         """select c.id, c.nome, c.criado_em, count(s.item_id) as itens,
                   (array_agg(v.capa_path order by s.salvo_em desc) filter (where v.capa_path is not null))[1:3] as capas
            from colecoes c
@@ -41,6 +42,7 @@ async def colecoes(e=Depends(sessao.atual)):
            where c.espaco_id = %s group by c.id order by c.criado_em""",
         (e["id"],),
     )
+    return [{**c, "capas": [url_capa(n) for n in c["capas"] or []]} for c in cs]
 
 
 @r.post("/colecoes")

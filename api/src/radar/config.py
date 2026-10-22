@@ -29,6 +29,8 @@ class Config(BaseSettings):
     buscar_hashtag: bool = True
 
     supabase_url: str | None = None
+    # chave secreta (sb_secret_…) só para guardar as capas no Storage; sem ela, as capas ficam em disco (pasta_dados)
+    supabase_secret_key: SecretStr | None = None
     # e-mails dos donos: no primeiro login ficam com o espaço de desenvolvimento e o plano Pro
     donos: str = ""
 

@@ -3,10 +3,10 @@
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 
 from radar import db, sessao
-from radar.armazenamento import caminho_capa
+from radar.armazenamento import caminho_capa, nome_valido, url_capa
 from radar.biblioteca import SELECT_VIDEO, cartao, ficha
 from radar.exemplos import ideias_exemplo
 from radar.nichos import GRUPOS, NICHOS
@@ -63,7 +63,7 @@ async def resumo(e=Depends(sessao.atual)):
         "select id, termos, status, vistos from garimpos where espaco_id = %s order by criado_em desc limit 1", (e["id"],)
     )
     return {"videos_total": n["total"], "videos_semana": n["semana"], "transcritos": n["transcritos"],
-            "capas": [c["capa_path"] for c in capas], "ultimo_garimpo": ultimo}
+            "capas": [url_capa(c["capa_path"]) for c in capas], "ultimo_garimpo": ultimo}
 
 
 @r.get("/videos")
@@ -180,6 +180,9 @@ async def busca(q: str, e=Depends(sessao.atual)):
 
 @r.get("/capas/{nome}")
 async def capa(nome: str):
+    # endereço antigo de uma capa que agora mora no Storage
+    if nome_valido(nome) and (url := url_capa(nome)).startswith("https://"):
+        return RedirectResponse(url, status_code=301)
     caminho = caminho_capa(nome)
     if not caminho:
         raise HTTPException(404)

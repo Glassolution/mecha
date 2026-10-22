@@ -3,54 +3,54 @@
 | Parte | Onde | Custo |
 |---|---|---|
 | Site (`web/`) | Vercel, plano Hobby | grátis |
-| API + trabalhador (`api/`) | Railway, plano Hobby, um serviço só | US$ 5/mês (já inclui US$ 5 de uso) |
-| Fila (Redis) | Railway, no mesmo projeto | entra nos US$ 5 |
-| Capas | Disco (volume) do serviço da API, em `/data` | ~US$ 0,15 por GB |
-| Banco | Supabase (o mesmo projeto do login), plano grátis | grátis até 500 MB |
+| API + trabalhador (`api/`) | Render, Web Service grátis, um serviço só | grátis |
+| Fila (Redis) | Render Key Value grátis | grátis |
+| Capas | Supabase Storage, balde público `capas` | grátis até 1 GB |
+| Banco | Supabase, projeto Mecha (us-west-2), plano grátis | grátis até 500 MB |
 
-Por que a Railway e não o Upstash para o Redis: o trabalhador (arq) consulta a fila várias vezes por segundo,
-o que passa de 5 milhões de comandos por mês, e o grátis do Upstash é 500 mil.
+O preço do grátis no Render: depois de 15 minutos sem ninguém usar, o servidor dorme e a primeira pessoa espera
+cerca de 1 minuto até ele acordar. O disco também some quando ele dorme, por isso as capas vão para o Supabase.
+Quando começar a cobrar, trocar para um plano pago do Render ou para a Railway (o `api/railway.json` já está pronto).
 
 ## Arquivos
 
-- `api/Dockerfile`: monta a imagem com Python 3.12 e as dependências do `uv.lock`.
-- `api/iniciar.sh`: aplica as migrações e liga a API e o trabalhador juntos (o trabalhador grava as capas que a API serve).
-- `api/railway.json`: diz à Railway para usar o Dockerfile e conferir `/api/saude`.
+- `render.yaml`: o Blueprint (API + fila, região oregon, perto do banco).
+- `api/Dockerfile`: imagem com Python 3.12 e as dependências do `uv.lock`.
+- `api/iniciar.sh`: aplica as migrações e liga a API e o trabalhador juntos.
 - `api/src/radar/migracoes/007_trancar_tabelas.sql`: liga a RLS em todas as tabelas. Obrigatória no Supabase,
   senão a chave publicável (que está no navegador) daria acesso às tabelas pela Data API.
 
 ## Passo a passo
 
-### 1. Railway
-1. Criar conta em railway.com (entrar com o GitHub) e assinar o Hobby.
-2. **New Project → Deploy from GitHub repo →** `Glassolution/mecha`.
-3. No serviço criado: **Settings → Source → Root Directory:** `api`.
-4. **Settings → Config-as-code → Railway config file:** `api/railway.json`.
-5. No projeto: **+ Create → Database → Redis**.
-6. No serviço da API: **+ Volume**, montado em `/data`.
-7. **Variables** do serviço da API (tabela abaixo).
-8. **Settings → Networking → Generate Domain.** Esse endereço é o `RADAR_API_URL`.
+### 1. Pegar duas coisas no Supabase (projeto Mecha)
+- **Project Settings → API Keys → Secret keys:** copiar a chave secreta (`sb_secret_…`). Vai no `SUPABASE_SECRET_KEY`.
+- **Connect → Session pooler:** a "connection string" com a senha no lugar de `[YOUR-PASSWORD]`
+  (é o `SUPABASE_DB_URL` do `.env`). Tem que ser o **Session pooler**: a conexão direta é só IPv6 e o Render não alcança.
 
-### 2. Variáveis da Railway (serviço da API)
+### 2. Render
+1. Criar conta em render.com entrando com o GitHub e liberar o acesso ao repositório `Glassolution/mecha`.
+2. **New → Blueprint →** escolher `Glassolution/mecha`. O Render lê o `render.yaml` e mostra `mecha-api` e `mecha-fila`.
+3. Preencher o que ele pedir:
 
 | Nome | Valor |
 |---|---|
-| `DATABASE_URL` | o valor de `SUPABASE_DB_URL` do `.env` (Session pooler, porta 5432) |
-| `DB_CONEXOES` | `5` |
-| `REDIS_URL` | `${{Redis.REDIS_URL}}` (a Railway preenche sozinha) |
-| `APIFY_TOKEN` | do `.env` |
+| `DATABASE_URL` | a connection string do Session pooler (passo 1) |
 | `SUPABASE_URL` | do `.env` |
+| `SUPABASE_SECRET_KEY` | a chave secreta (passo 1) |
+| `APIFY_TOKEN` | do `.env` |
 | `DONOS` | do `.env` |
-| `AMBIENTE` | `producao` (nunca `teste`: no modo teste a API aceita login sem senha) |
-| `COOKIE_SEGURO` | `true` |
-| `SITE_URL` | o endereço do site na Vercel |
+| `SITE_URL` | o endereço do site na Vercel, com `https://` |
 
-`ANTHROPIC_API_KEY`, `TYPESAFE_API_KEY` e `YOUTUBE_API_KEY` ainda não são usadas pela API; só colocar quando forem.
+`REDIS_URL`, `DB_CONEXOES`, `AMBIENTE=producao` e `COOKIE_SEGURO=true` já vêm do `render.yaml`.
+`AMBIENTE` nunca pode ser `teste`: no modo teste a API aceita login sem senha.
+
+4. **Apply.** O primeiro deploy leva uns 5 minutos. Na primeira vez a API cria as tabelas e o balde `capas`.
+5. Copiar o endereço do `mecha-api` (algo como `https://mecha-api.onrender.com`).
 
 ### 3. Vercel
-1. **Environment Variables → Add:** `RADAR_API_URL` = o domínio da Railway, com `https://` e sem barra no fim.
+1. **Environment Variables → Add:** `RADAR_API_URL` = o endereço do `mecha-api`, com `https://` e sem barra no fim.
 2. **Deployments → Redeploy** (a variável só vale num deploy novo).
 
 ### 4. Conferir
-- `https://<domínio-da-railway>/api/saude` responde `{"ok":true}`.
+- `https://<endereço-do-mecha-api>/api/saude` responde `{"ok":true}`.
 - No site da Vercel: entrar e fazer um garimpo.

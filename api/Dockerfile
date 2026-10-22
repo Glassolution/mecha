@@ -1,5 +1,5 @@
-# Imagem da API e do trabalhador para rodar na nuvem (Railway). Um contêiner só, os dois processos juntos,
-# porque o trabalhador grava as capas e a API serve as mesmas capas do mesmo disco (/data).
+# Imagem da API e do trabalhador para rodar na nuvem (Render; serve também na Railway). Um contêiner só, os dois processos juntos,
+# porque no plano grátis do Render só um serviço é de graça (as capas vão para o Supabase Storage).
 FROM python:3.12-slim
 
 COPY --from=ghcr.io/astral-sh/uv:0.13 /uv /usr/local/bin/uv

@@ -8,6 +8,7 @@ import logging
 from arq.connections import RedisSettings
 
 from radar import db, garimpo
+from radar.armazenamento import garantir_balde
 from radar.coleta.apify_instagram import ApifyInstagram
 from radar.coleta.apify_tiktok import ApifyTikTok
 from radar.config import config
@@ -17,6 +18,10 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 async def ao_iniciar(ctx):
     await db.abrir()
+    try:
+        await garantir_balde()
+    except Exception:  # sem o balde as capas não aparecem, mas o garimpo funciona
+        logging.exception("não deu para criar o balde das capas no Supabase Storage")
     cfg = config()
     # um provedor por fonte; sem a chave da Apify, nenhum (o garimpo mostra o erro em cada fonte)
     ctx["coletores"] = {}
