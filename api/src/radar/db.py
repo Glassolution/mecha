@@ -16,7 +16,7 @@ async def abrir(url: str | None = None) -> AsyncConnectionPool:
         _pool = AsyncConnectionPool(
             url or config().database_url,
             min_size=1,
-            max_size=10,
+            max_size=config().db_conexoes,
             kwargs={"row_factory": dict_row},
             open=False,
         )

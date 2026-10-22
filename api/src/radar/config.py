@@ -14,6 +14,8 @@ class Config(BaseSettings):
 
     ambiente: str = "dev"  # dev | teste | producao
     database_url: str = "postgresql://localhost/radar"
+    # conexões abertas por processo (API e trabalhador têm um pool cada); o pooler grátis do Supabase aguenta poucas
+    db_conexoes: int = 10
     redis_url: str = "redis://localhost:6379/0"
     pasta_dados: Path = RAIZ / "data"
 
