@@ -115,7 +115,7 @@ function Entrar() {
   }
 
   const titulos: Record<Modo, [string, string]> = {
-    entrar: ["Entre na mecha", "Os vídeos de SaaS que estão bombando, em 1 minuto."],
+    entrar: ["Entre na Bru", "Os vídeos de SaaS que estão bombando, em 1 minuto."],
     criar: ["Crie a sua conta", "Grátis para começar. Sem cartão."],
     esqueci: ["Esqueceu a senha?", "Mandamos um link para você criar uma senha nova."],
   };
@@ -237,7 +237,7 @@ function Entrar() {
 
         <div style={{ marginTop: 18, display: "grid", gap: 10, justifyItems: "center" }}>
           <Link href="/inicio" className="link-sutil">Voltar ao início</Link>
-          <Link href="/inicio" aria-label="mecha, voltar ao início" style={{ opacity: 0.8 }}><Logo tamanho={18} /></Link>
+          <Link href="/inicio" aria-label="Bru, voltar ao início" style={{ opacity: 0.8 }}><Logo tamanho={18} /></Link>
         </div>
       </div>
     </main>

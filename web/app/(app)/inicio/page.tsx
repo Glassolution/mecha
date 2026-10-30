@@ -27,23 +27,6 @@ const EXEMPLOS: Record<Modo, string[]> = {
   ideia: ["app para advogados", "ia para corretor de imóveis", "agenda de salão", "ia para professores", "app para médicos", "app de finanças"],
   criativo: ["eu criei um app", "ferramentas de ia que você precisa", "sites que ninguém conhece", "ia que faz o seu trabalho", "ferramenta de ia"],
 };
-// textura de caracteres atrás da caixa de busca (sempre a mesma, para não mudar entre servidor e navegador)
-const ASCII = (() => {
-  const sinais = " .:-=+*xX#";
-  let n = 7;
-  const linhas: string[] = [];
-  for (let l = 0; l < 9; l++) {
-    let linha = "";
-    for (let c = 0; c < 150; c++) {
-      n = (n * 1103515245 + 12345) % 2147483648;
-      const borda = Math.min(c, 149 - c) / 75; // mais denso nas pontas, quase vazio no meio
-      linha += sinais[Math.floor(((n / 2147483648) * (1 - borda * 0.85)) * sinais.length)];
-    }
-    linhas.push(linha);
-  }
-  return linhas.join("\n");
-})();
-
 const SUGESTOES = ["app para médicos", "ia para advogados", "eu criei um app", "sites que ninguém conhece", "ia para corretor de imóveis"];
 
 /** Exemplos sendo digitados e apagados no lugar do texto de ajuda. */
@@ -77,8 +60,6 @@ function useDigitando(frases: string[], ativo: boolean) {
 }
 
 /** Brilho que segue o cursor dentro de um elemento. */
-// grade do fundo: blocos parados, bem sutis
-const BLOCOS = Array.from({ length: 40 }, (_, i) => <i key={i} />);
 
 function brilhoQueSegue(e: React.PointerEvent<HTMLElement>) {
   const r = e.currentTarget.getBoundingClientRect();
@@ -173,11 +154,11 @@ export default function Inicio() {
 
   return (
     <div className="ini">
-      <div className="ini-fundo" aria-hidden="true">
-        <div className="ini-grade">{BLOCOS}</div>
-      </div>
+      <div className="ini-fundo" aria-hidden="true" />
 
       <section className="ini-centro">
+        <span className="ini-eyebrow"><i /> Seu próximo grande começo</span>
+        <div className="ini-identidade">
         <button
           type="button"
           className={["ini-mascote", texto ? "lendo" : "", estado !== "parado" ? "decola" : "", pulando ? "pula" : ""].filter(Boolean).join(" ")}
@@ -186,24 +167,26 @@ export default function Inicio() {
             setPulando(true);
             setTimeout(() => setPulando(false), 900);
           }}
-          aria-label="Mascote da mecha"
+          aria-label="Mascote da Bru"
         >
-          <Mascote tamanho={78} />
+          <Mascote tamanho={64} />
         </button>
 
-        <TituloAnimado className="ini-titulo" texto="O que você quer achar hoje?" />
+        <span className="ini-wordmark">Bru</span>
+        </div>
+        <TituloAnimado className="ini-titulo" texto="Grandes ideias começam com curiosidade." />
         <Revela as="p" className="ini-sub" i={5}>
-          Escreva um nicho ou um problema. A mecha busca no TikTok e no Instagram, aqui e lá fora, e mostra o que está viralizando, ao vivo.
+          Encontre o que está ganhando atenção. Transforme tendências do TikTok e Instagram na sua próxima oportunidade.
         </Revela>
 
         <Revela i={6} className="ini-compositor-envoltorio">
-          <pre className="ini-ascii" aria-hidden="true">{ASCII}</pre>
           <form
             className={`ini-compositor ${estado === "lancando" ? "lancando" : ""}`}
             onSubmit={(e) => { e.preventDefault(); garimpar(); }}
             onPointerMove={brilhoQueSegue}
           >
             <div className="ini-campo">
+              <span className="ini-busca-icone" aria-hidden="true"><Icone nome="busca" tamanho={22} /></span>
               <label className="oculto" htmlFor="ini-texto">Um nicho ou problema</label>
               <textarea
                 id="ini-texto"
@@ -258,8 +241,6 @@ export default function Inicio() {
         )}
       </section>
 
-      {alta && <Esteiras videos={alta.itens} />}
-
       <section className="ini-proximos" aria-label="Próximos passos">
         {[
           { href: "/ideias", icone: "sobe", t: "Ideias em alta", d: "SaaS que estão ganhando atenção agora, por nicho." },
@@ -276,6 +257,8 @@ export default function Inicio() {
           </Revela>
         ))}
       </section>
+      {alta && alta.itens.length > 0 && <Esteiras videos={alta.itens} />}
+      <footer className="ini-footer"><span>Menos ruído. Mais possibilidades.</span><span>Feito para quem cria o próximo passo. ↗</span></footer>
     </div>
   );
 }

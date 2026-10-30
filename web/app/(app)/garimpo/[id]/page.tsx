@@ -4,13 +4,14 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { api, limparCache } from "@/lib/api";
-import { capaUrl, ICONE_FONTE, num, PLATAFORMA } from "@/lib/fmt";
+import { capaUrl, num } from "@/lib/fmt";
 import type { Garimpo, Video } from "@/lib/tipos";
 import { primeiraLinha, Vazio } from "@/components/Cartoes";
 import { EstadoBusca } from "@/components/EstadoBusca";
 import { Icone } from "@/components/Icone";
 import { AbasPilula, Revela, Suspenso } from "@/components/Movimento";
 import { SalvarEm } from "@/components/SalvarEm";
+import { SeloFonte } from "@/components/SeloFonte";
 
 type Ordem = "relevantes" | "em_alta" | "recentes";
 type Idioma = "todos" | "pt" | "en";
@@ -22,6 +23,11 @@ type Resultado = Video & { novo?: boolean; chegada: number };
 const MINIMO: Record<Atencao, number> = { qualquer: 0, leve: 50_000, media: 200_000, forte: 1_000_000 };
 
 
+/** Título sem emojis e símbolos soltos no começo ("🎯 Dica rápida…" -> "Dica rápida…"). */
+function tituloLimpo(t: string) {
+  return t.replace(/^[^\p{L}\p{N}@#"“]+/u, "") || t;
+}
+
 /** Cartão de resultado, no estilo de galeria: capa, título, autor e o botão Abrir. */
 function CartaoResultado({ v, i, aoSalvar, salvo }: { v: Resultado; i: number; aoSalvar: (v: Video) => void; salvo: boolean }) {
   const capa = capaUrl(v.capa);
@@ -31,15 +37,17 @@ function CartaoResultado({ v, i, aoSalvar, salvo }: { v: Resultado; i: number; a
       <Link href={href} className="res-thumb" aria-label={`Abrir: ${primeiraLinha(v.texto)}`}>
         {capa ? <img src={capa} alt="" loading="lazy" /> : <span className="capa-vazia" />}
         <span className="res-views"><Icone nome="olho" tamanho={12} /> {num(v.views)}</span>
-        <span className="res-fonte" title={PLATAFORMA[v.fonte] ?? v.fonte}><Icone nome={ICONE_FONTE[v.fonte] ?? "play"} tamanho={12} /></span>
       </Link>
       <button className="res-salvar" aria-pressed={salvo} aria-label={salvo ? "Salvo. Mudar coleção" : "Salvar"} onClick={() => aoSalvar(v)}>
         <Icone nome={salvo ? "check" : "salvo"} tamanho={15} />
       </button>
       <div className="res-meta">
         <div className="res-txt">
-          <b title={v.texto}>{primeiraLinha(v.texto)}</b>
-          <span>{v.autor}{v.views_dia ? ` · ${num(v.views_dia)}/dia` : ""}</span>
+          <b title={v.texto}>{tituloLimpo(primeiraLinha(v.texto))}</b>
+          <span className="res-autor">
+            <SeloFonte fonte={v.fonte} soIcone />
+            <span className="res-autor-txt">{v.autor}{v.views_dia ? ` · ${num(v.views_dia)}/dia` : ""}</span>
+          </span>
         </div>
         <Link href={href} className="res-abrir">Abrir</Link>
       </div>

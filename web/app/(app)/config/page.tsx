@@ -14,12 +14,12 @@ type Nicho = { id: string; rotulo: string };
 type Secao = "perfil" | "negocio" | "assuntos" | "plano" | "conta" | "conexoes";
 
 const SECOES: { id: Secao; nome: string; icone: NomeIconeMenu; descricao: string }[] = [
-  { id: "perfil", nome: "Perfil", icone: "perfil", descricao: "Como a mecha te chama e o que você procura." },
-  { id: "negocio", nome: "Meu negócio", icone: "negocio", descricao: "O seu negócio online. Ajuda a mecha a sugerir criativos e ideias perto do que você faz." },
-  { id: "assuntos", nome: "Assuntos", icone: "assuntos", descricao: "Os temas que aparecem primeiro para você e onde a mecha procura." },
+  { id: "perfil", nome: "Perfil", icone: "perfil", descricao: "Como a Bru te chama e o que você procura." },
+  { id: "negocio", nome: "Meu negócio", icone: "negocio", descricao: "O seu negócio online. Ajuda a Bru a sugerir criativos e ideias perto do que você faz." },
+  { id: "assuntos", nome: "Assuntos", icone: "assuntos", descricao: "Os temas que aparecem primeiro para você e onde a Bru procura." },
   { id: "plano", nome: "Plano e uso", icone: "plano", descricao: "O seu plano e quanto você já usou neste mês." },
   { id: "conta", nome: "Conta", icone: "conta", descricao: "E-mail, senha e saída." },
-  { id: "conexoes", nome: "Conexões", icone: "conexoes", descricao: "Ferramentas que se ligam à mecha." },
+  { id: "conexoes", nome: "Conexões", icone: "conexoes", descricao: "Ferramentas que se ligam à Bru." },
 ];
 
 const PERFIS = [
@@ -201,7 +201,7 @@ function PainelConfig({ eu }: { eu: Eu }) {
 
           {secao === "assuntos" && (
             <>
-              <Linha titulo="Assuntos" dica={form.nichos.length ? `${form.nichos.length} escolhido${form.nichos.length > 1 ? "s" : ""}` : "Nenhum escolhido: a mecha mostra de tudo."}>
+              <Linha titulo="Assuntos" dica={form.nichos.length ? `${form.nichos.length} escolhido${form.nichos.length > 1 ? "s" : ""}` : "Nenhum escolhido: a Bru mostra de tudo."}>
                 <div className="chips">
                   {(nichos ?? []).filter((n) => n.id !== "outro").map((n) => {
                     const on = form.nichos.includes(n.id);

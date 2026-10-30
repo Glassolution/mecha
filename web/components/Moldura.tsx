@@ -10,6 +10,7 @@ import { BuscaK } from "./BuscaK";
 import { Provedor } from "./Contexto";
 import { Icone } from "./Icone";
 import { IconeMenu } from "./IconesMenu";
+import { IconeSidebar } from "./IconesSidebar";
 import { Logo } from "./Logo";
 
 const ABAS = [
@@ -60,14 +61,8 @@ export function Moldura({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { eu, pronto, recarregar } = useEu();
   const visitante = pronto && !eu;
-  const [rolou, setRolou] = useState(false);
-  useEffect(() => {
-    const ver = () => setRolou(window.scrollY > 8);
-    ver();
-    window.addEventListener("scroll", ver, { passive: true });
-    return () => window.removeEventListener("scroll", ver);
-  }, []);
   const [buscaAberta, setBuscaAberta] = useState(false);
+  const [sidebarAberta, setSidebarAberta] = useState(false);
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -79,6 +74,13 @@ export function Moldura({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     function tecla(e: KeyboardEvent) {
+      const campo = e.target instanceof HTMLElement && (e.target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName));
+      if (!campo && (e.metaKey || e.ctrlKey) && ["m", "s"].includes(e.key.toLowerCase())) {
+        e.preventDefault();
+        router.push(e.key.toLowerCase() === "m" ? "/inicio" : "/config");
+        setSidebarAberta(false);
+      }
+      if (e.key === "Escape") { setSidebarAberta(false); setMenu(false); }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setBuscaAberta((a) => !a);
@@ -86,7 +88,7 @@ export function Moldura({ children }: { children: React.ReactNode }) {
     }
     window.addEventListener("keydown", tecla);
     return () => window.removeEventListener("keydown", tecla);
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (!menu) return;
@@ -116,32 +118,46 @@ export function Moldura({ children }: { children: React.ReactNode }) {
 
   return (
     <Provedor eu={eu} pronto={pronto} recarregarEu={recarregar}>
-      <header className={`topo${rolou ? " rolou" : ""}`}>
-        <div className="topo-linha">
-          <div className="topo-esq">
-            <Link href="/inicio" aria-label="mecha, ir para o início">
-              <Logo tamanho={24} />
+      <div className="app-moldura" style={{ "--topo": "0px" } as React.CSSProperties}>
+      <button className="sidebar-abrir" onClick={() => setSidebarAberta(true)} aria-label="Abrir menu" aria-expanded={sidebarAberta} aria-controls="sidebar">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+      </button>
+      {sidebarAberta && <button className="sidebar-fundo" aria-label="Fechar menu" onClick={() => setSidebarAberta(false)} />}
+      <aside id="sidebar" className={`sidebar${sidebarAberta ? " aberta" : ""}`} aria-label="Menu principal">
+        <div className="sidebar-marca">
+          <Link href="/inicio" onClick={() => setSidebarAberta(false)} aria-label="Bru, ir para o início"><Logo tamanho={30} /></Link>
+          <button className="sidebar-fechar icone-bt" onClick={() => setSidebarAberta(false)} aria-label="Fechar menu"><Icone nome="x" /></button>
+        </div>
+        <nav className="sidebar-nav" aria-label="Navegação principal">
+          <div className="sidebar-grupo">
+            <p className="sidebar-titulo">Menu principal</p>
+            <Link href="/inicio" className="sidebar-item" aria-current={ativa(pathname, "/inicio") ? "page" : undefined} onClick={() => setSidebarAberta(false)}>
+              <IconeSidebar nome="inicio" /><span>Início</span><span className="sidebar-atalho" aria-hidden="true"><kbd>⌘</kbd><kbd>M</kbd></span>
             </Link>
-            <nav className="abas" aria-label="Abas">
-              {ABAS.map((a) => (
-                <Link key={a.href} href={a.href} className="aba" aria-current={ativa(pathname, a.href) ? "page" : undefined}>
-                  {a.nome}
-                </Link>
-              ))}
-            </nav>
+            <Link href="/config" className="sidebar-item" aria-current={ativa(pathname, "/config") ? "page" : undefined} onClick={() => setSidebarAberta(false)}>
+              <IconeSidebar nome="ajustes" />
+              <span>Configurações</span><span className="sidebar-atalho" aria-hidden="true"><kbd>⌘</kbd><kbd>S</kbd></span>
+            </Link>
           </div>
-          <button className="busca-pilula" onClick={abrirBusca}>
-            <Icone nome="busca" />
-            <span>Buscar ideia, SaaS ou nicho</span>
-            <kbd>⌘K</kbd>
-          </button>
-          <div className="topo-dir">
-            <button className="icone-bt so-celular" onClick={abrirBusca} aria-label="Buscar">
-              <Icone nome="busca" />
-            </button>
-            <button className="icone-bt" aria-label="Avisos" title={eu ? "Nenhum aviso por enquanto" : "Entre para ver os avisos"} onClick={visitante ? irEntrar : undefined}>
-              <Icone nome="sino" />
-            </button>
+          <div className="sidebar-grupo">
+            <p className="sidebar-titulo">Atividade</p>
+            {ABAS.slice(1, 4).map((a) => (
+              <Link key={a.href} href={a.href} className="sidebar-item" aria-current={ativa(pathname, a.href) ? "page" : undefined} onClick={() => setSidebarAberta(false)}>
+                <IconeSidebar nome={a.icone} /><span>{a.nome}</span>
+              </Link>
+            ))}
+          </div>
+          <div className="sidebar-grupo">
+            <p className="sidebar-titulo">Criação</p>
+            <Link href="/estudio" className="sidebar-item" aria-current={ativa(pathname, "/estudio") ? "page" : undefined} onClick={() => setSidebarAberta(false)}>
+              <IconeSidebar nome="estudio" /><span>Estúdio</span>
+            </Link>
+          </div>
+        </nav>
+        <div className="sidebar-rodape">
+          <button className="sidebar-item" onClick={abrirBusca}><IconeSidebar nome="busca" /><span>Buscar</span><kbd>⌘ K</kbd></button>
+          <button className="sidebar-item" title={eu ? "Nenhum aviso por enquanto" : "Entre para ver os avisos"} onClick={visitante ? irEntrar : undefined}><IconeSidebar nome="avisos" /><span>Avisos</span></button>
+          <div className="sidebar-conta">
             {visitante && (
               <Link href={`/entrar?modo=criar&proximo=${encodeURIComponent(pathname)}`} className="bt1 bt-p bt-criar">
                 Criar conta
@@ -149,8 +165,8 @@ export function Moldura({ children }: { children: React.ReactNode }) {
             )}
             {eu && (
             <div style={{ position: "relative" }} ref={menuRef}>
-              <button className="avatar" onClick={() => setMenu((m) => !m)} aria-haspopup="menu" aria-expanded={menu} aria-label="Menu do perfil">
-                {iniciais}
+              <button className="sidebar-perfil" onClick={() => setMenu((m) => !m)} aria-haspopup="menu" aria-expanded={menu} aria-label="Menu do perfil">
+                <span className="avatar">{iniciais}</span><span className="sidebar-pessoa">{nomePessoa}</span><Icone nome="baixo" />
               </button>
               {menu && eu && (
                 <div className="mp" role="menu" aria-label="Menu do perfil">
@@ -195,15 +211,9 @@ export function Moldura({ children }: { children: React.ReactNode }) {
             )}
           </div>
         </div>
-        <nav className="abas-celular" aria-label="Abas">
-          {ABAS.map((a) => (
-            <Link key={a.href} href={a.href} className="aba" aria-current={ativa(pathname, a.href) ? "page" : undefined}>
-              {a.nome}
-            </Link>
-          ))}
-        </nav>
-      </header>
-      <main className="pagina" key={pathname}>{children}</main>
+      </aside>
+      <div className="app-conteudo"><main className="pagina" key={pathname}>{children}</main></div>
+      </div>
       {buscaAberta && <BuscaK fechar={() => setBuscaAberta(false)} />}
     </Provedor>
   );

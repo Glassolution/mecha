@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { capaUrl, num, pct, PLATAFORMA, tiktokId } from "@/lib/fmt";
+import { capaUrl, num, pct, tiktokId } from "@/lib/fmt";
 import type { Ideia, ItemVeredito, Video } from "@/lib/tipos";
 import { Icone } from "./Icone";
+import { SeloFonte } from "./SeloFonte";
 
 /** Player oficial de incorporação do TikTok, sem som e sem controles (o vídeo nunca é copiado). */
 export function playerTikTok(id: string, controles = false) {
@@ -52,7 +53,7 @@ export function CartaoVideo({ v, aoSalvar, salvo }: { v: Video; aoSalvar?: (v: V
           {tocando && tt && <iframe src={playerTikTok(tt)} title="Vídeo tocando sem som" allow="autoplay; encrypted-media" />}
           <div className="sobre">
             <div className="linha">
-              <span className="plataforma">{PLATAFORMA[v.fonte] ?? v.fonte}</span>
+              <SeloFonte fonte={v.fonte} />
               {v.nota !== null && <span className="nota">{v.nota}</span>}
             </div>
             <p className="gancho">{v.gancho ?? primeiraLinha(v.texto, "")}</p>

@@ -153,9 +153,9 @@ export function Quiz({ eu }: { eu: Eu }) {
           <section className={`quiz-passo quiz-${direcao}`} key={passo}>
             {passo === "nome" && (
               <form onSubmit={(e) => { e.preventDefault(); avancar(); }}>
-                <p className="quiz-rotulo">Boas-vindas à mecha</p>
+                <p className="quiz-rotulo">Boas-vindas à Bru</p>
                 <h1>Oi! Como podemos te chamar?</h1>
-                <p className="suave">Leva 30 segundos. Assim a mecha mostra o que faz sentido para você.</p>
+                <p className="suave">Leva 30 segundos. Assim a Bru mostra o que faz sentido para você.</p>
                 <div className="quiz-campo-icone">
                   <Icone nome="usuario" tamanho={18} />
                   <input className="campo campo-g" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Seu nome" maxLength={60} autoFocus {...campo}
@@ -413,7 +413,7 @@ function Previa(p: {
                   {p.temSaas === false ? "Procurando a próxima ideia" : p.temSaas && p.saas.nome.trim() ? p.saas.nome.trim() : <span className="sem">Seu negócio</span>}
                   {(site || tipoRotulo) && <span className="perfil-site">{[tipoRotulo, site].filter(Boolean).join(" · ")}</span>}
                 </b>
-                <span>{p.temSaas === false ? "A mecha vai sugerir o que criar" : p.saas.o_que_faz.trim() || "O que ele faz aparece aqui"}</span>
+                <span>{p.temSaas === false ? "A Bru vai sugerir o que criar" : p.saas.o_que_faz.trim() || "O que ele faz aparece aqui"}</span>
               </div>
             </div>
           )}
