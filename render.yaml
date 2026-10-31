@@ -1,0 +1,43 @@
+# Blueprint do Render: a API (com o trabalhador junto) e a fila, nos planos grátis.
+# Os valores marcados com sync: false o Render pede na hora de criar. Passo a passo em docs/hospedagem.md.
+services:
+  - type: web
+    name: mecha-api
+    runtime: docker
+    plan: free
+    region: oregon  # o banco do Supabase (projeto Mecha) fica em us-west-2
+    rootDir: api
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/saude
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: APIFY_TOKEN
+        sync: false
+      - key: DONOS
+        sync: false
+      - key: SITE_URL
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: mecha-fila
+          property: connectionString
+      - key: DB_CONEXOES
+        value: "4"
+      - key: AMBIENTE
+        value: producao
+      - key: COOKIE_SEGURO
+        value: "true"
+
+  - type: keyvalue
+    name: mecha-fila
+    plan: free
+    region: oregon
+    maxmemoryPolicy: noeviction  # é uma fila: nada pode ser jogado fora
+    ipAllowList: []  # só a API, pela rede interna do Render

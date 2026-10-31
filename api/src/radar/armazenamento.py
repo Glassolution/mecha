@@ -1,4 +1,8 @@
-"""Cópia das capas e das logos de sites. Por enquanto em disco (data/); antes de publicar, troca por Cloudflare R2.
+"""Cópia das capas e das logos de sites.
+
+As capas vão para o Supabase Storage (balde público "capas") quando há SUPABASE_SECRET_KEY, porque o disco do
+servidor grátis some quando ele dorme; sem a chave, ficam em disco (data/), como no computador.
+As logos ficam sempre em disco: são só um cache de 7 dias, buscar de novo não custa nada.
 
 Só a capa é copiada. O vídeo de terceiros nunca é guardado.
 """
@@ -22,15 +26,62 @@ def nome_capa(video_id: str) -> str:
     return re.sub(r"[^a-z0-9]", "_", video_id.lower()) + ".jpg"
 
 
+def nome_valido(nome: str) -> bool:
+    return bool(_NOME_SEGURO.match(nome))
+
+
 def caminho_capa(nome: str):
-    if not _NOME_SEGURO.match(nome):
+    if not nome_valido(nome):
         return None
     caminho = config().pasta_capas / nome
     return caminho if caminho.is_file() else None
 
 
+BALDE = "capas"
+
+
+def _storage() -> tuple[str, dict[str, str]] | None:
+    """(endereço do Storage, cabeçalhos) quando as capas vão para o Supabase; None quando ficam em disco."""
+    cfg = config()
+    if not (cfg.supabase_url and cfg.supabase_secret_key):
+        return None
+    chave = cfg.supabase_secret_key.get_secret_value()
+    cabecalhos = {"apikey": chave}
+    if chave.startswith("eyJ"):  # a service_role antiga é um JWT e também vai no Authorization; a sb_secret_ não
+        cabecalhos["Authorization"] = f"Bearer {chave}"
+    return f"{cfg.supabase_url.rstrip('/')}/storage/v1", cabecalhos
+
+
 def url_capa(capa_path: str | None) -> str | None:
-    return f"/api/capas/{capa_path}" if capa_path else None
+    if not capa_path:
+        return None
+    if storage := _storage():
+        return f"{storage[0]}/object/public/{BALDE}/{capa_path}"
+    return f"/api/capas/{capa_path}"
+
+
+async def garantir_balde() -> None:
+    """Cria o balde público das capas no Supabase, se ainda não existir. Sem a chave, não faz nada."""
+    if not (storage := _storage()):
+        return
+    base, cabecalhos = storage
+    async with httpx.AsyncClient(timeout=15) as cli:
+        r = await cli.post(f"{base}/bucket", headers=cabecalhos,
+                           json={"id": BALDE, "name": BALDE, "public": True, "allowed_mime_types": ["image/jpeg"]})
+        # 409 ou 400 "already exists": o balde já estava lá
+        if r.status_code >= 400 and "exist" not in r.text.lower():
+            r.raise_for_status()
+
+
+async def _guardar_no_storage(cli: httpx.AsyncClient, nome: str, dados: bytes) -> bool:
+    base, cabecalhos = _storage()
+    try:
+        r = await cli.post(f"{base}/object/{BALDE}/{nome}", content=dados,
+                           headers={**cabecalhos, "Content-Type": "image/jpeg", "x-upsert": "true",
+                                    "Cache-Control": "max-age=604800"})
+    except httpx.HTTPError:
+        return False
+    return r.status_code < 300
 
 
 async def copiar_capa(cli: httpx.AsyncClient, video_id: str, origem: str) -> str | None:
@@ -38,8 +89,9 @@ async def copiar_capa(cli: httpx.AsyncClient, video_id: str, origem: str) -> str
     if not origem.startswith("https://"):
         return None
     nome = nome_capa(video_id)
+    no_storage = _storage() is not None
     destino = config().pasta_capas / nome
-    if destino.is_file():
+    if not no_storage and destino.is_file():
         return nome
     try:
         r = await cli.get(origem, follow_redirects=True)
@@ -48,6 +100,8 @@ async def copiar_capa(cli: httpx.AsyncClient, video_id: str, origem: str) -> str
         return None
     if not r.headers.get("content-type", "").startswith("image/") or len(r.content) > _TAMANHO_MAX:
         return None
+    if no_storage:
+        return nome if await _guardar_no_storage(cli, nome, r.content) else None
     destino.parent.mkdir(parents=True, exist_ok=True)
     destino.write_bytes(r.content)
     return nome

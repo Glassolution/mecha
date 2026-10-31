@@ -14,6 +14,8 @@ class Config(BaseSettings):
 
     ambiente: str = "dev"  # dev | teste | producao
     database_url: str = "postgresql://localhost/radar"
+    # conexões abertas por processo (API e trabalhador têm um pool cada); o pooler grátis do Supabase aguenta poucas
+    db_conexoes: int = 10
     redis_url: str = "redis://localhost:6379/0"
     pasta_dados: Path = RAIZ / "data"
 
@@ -54,6 +56,8 @@ class Config(BaseSettings):
     actor_comentarios_instagram: str = "apify~instagram-comment-scraper"
 
     supabase_url: str | None = None
+    # chave secreta (sb_secret_…) só para guardar as capas no Storage; sem ela, as capas ficam em disco (pasta_dados)
+    supabase_secret_key: SecretStr | None = None
     # e-mails dos donos: no primeiro login ficam com o espaço de desenvolvimento e o plano Pro
     donos: str = ""
 

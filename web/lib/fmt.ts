@@ -18,7 +18,7 @@ export function mmss(segundos: number): string {
 }
 
 export function capaUrl(capa: string | null | undefined): string | null {
-  return capa ? (capa.startsWith("/") ? capa : `/api/capas/${capa}`) : null;
+  return capa ? (capa.startsWith("/") || capa.startsWith("https://") ? capa : `/api/capas/${capa}`) : null;
 }
 
 export const PLATAFORMA: Record<string, string> = {
