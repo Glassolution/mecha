@@ -1,16 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useApi } from "@/lib/api";
-import { capaUrl, ICONE_FONTE, IDIOMA, instagramCodigo, num, PLATAFORMA, quando, tiktokId } from "@/lib/fmt";
+import { ICONE_FONTE, IDIOMA, num, PLATAFORMA, quando } from "@/lib/fmt";
 import type { FichaVideo } from "@/lib/tipos";
-import { ListaVeredito, playerTikTok, primeiraLinha, Vazio } from "@/components/Cartoes";
+import { ListaVeredito, primeiraLinha, Vazio } from "@/components/Cartoes";
 import { useApp } from "@/components/Contexto";
-import { Desempenho } from "@/components/Desempenho";
+import { rotaAnalisar } from "@/components/EscolhaVideo";
+import { retornoDosVideos } from "@/lib/navegacaoVideo";
 import { Icone } from "@/components/Icone";
-import { Revela } from "@/components/Movimento";
+import { AbasPilula } from "@/components/Movimento";
+import { NumerosVideo } from "@/components/NumerosVideo";
+import { PlayerVideo } from "@/components/PlayerVideo";
 import { SalvarEm } from "@/components/SalvarEm";
 
 function pct(x: number) {
@@ -45,189 +48,147 @@ function leitura(v: FichaVideo): { icone: string; texto: React.ReactNode }[] {
   return frases.slice(0, 3);
 }
 
-export default function FichaDoVideo() {
+type AbaEsq = "detalhes" | "legenda";
+type AbaDir = "numeros" | "leitura";
+
+/** Assistir: o vídeo no centro, os detalhes à esquerda e os números à direita, como um editor. */
+export default function AssistirVideo() {
   const { id } = useParams<{ id: string }>();
   const videoId = decodeURIComponent(id);
   const router = useRouter();
+  const parametros = useSearchParams();
   const { avisar } = useApp();
   const { dados: v, erro } = useApi<FichaVideo>(`/api/videos/${encodeURIComponent(videoId)}`);
+  const voltarPara = retornoDosVideos(parametros.get("origem"), v?.garimpo_id);
   const [salvando, setSalvando] = useState(false);
-  const [menu, setMenu] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [esq, setEsq] = useState<AbaEsq>("detalhes");
+  const [dir, setDir] = useState<AbaDir>("numeros");
 
   function voltar() {
-    if (window.history.length > 1) router.back();
-    else router.push("/inicio");
+    router.push(voltarPara);
   }
 
   useEffect(() => {
     function tecla(e: KeyboardEvent) {
-      if (e.key !== "Escape") return;
-      if (menu) setMenu(false);
-      else if (!document.querySelector(".fundo-janela")) voltar();
-    }
-    function fora(e: MouseEvent) {
-      if (menu && !menuRef.current?.contains(e.target as Node)) setMenu(false);
+      if (e.key === "Escape" && !document.querySelector(".fundo-janela")) voltar();
     }
     window.addEventListener("keydown", tecla);
-    document.addEventListener("mousedown", fora);
-    return () => {
-      window.removeEventListener("keydown", tecla);
-      document.removeEventListener("mousedown", fora);
-    };
+    return () => window.removeEventListener("keydown", tecla);
   });
 
-  if (erro) return <Vazio titulo="Vídeo não encontrado." texto="Ele pode ter saído da biblioteca." acao={<Link className="bt1" href="/inicio">Voltar ao início</Link>} />;
-  if (!v) return <div className="esqueleto" style={{ height: 600, marginTop: 24 }} />;
+  if (erro) return <Vazio titulo="Vídeo não encontrado." texto="Ele pode ter saído da biblioteca." acao={<Link className="bt1" href="/pesquisa">Voltar à pesquisa</Link>} />;
+  if (!v) return <div className="esqueleto" style={{ height: 600, marginTop: 24, borderRadius: 24 }} />;
 
-  const tt = tiktokId(v.id);
-  const ig = instagramCodigo(v.id);
   const titulo = v.gancho ?? primeiraLinha(v.texto_completo);
   const conferidos = v.veredito.itens.filter((i) => i.ok !== null);
   const aprovados = conferidos.filter((i) => i.ok).length;
-  const aguardando = v.veredito.itens.length - conferidos.length;
   const frases = leitura(v);
-  const meta = [
-    PLATAFORMA[v.fonte] ?? v.fonte,
-    v.idioma ? IDIOMA[v.idioma] ?? v.idioma : null,
-    v.duracao_s ? `${v.duracao_s} s` : null,
-    v.publicado ? `postado ${quando(v.publicado)}` : null,
-  ].filter(Boolean);
+  const detalhes = [
+    { icone: ICONE_FONTE[v.fonte] ?? "play", k: "Plataforma", val: PLATAFORMA[v.fonte] ?? v.fonte },
+    { icone: "globo", k: "Idioma", val: v.idioma ? IDIOMA[v.idioma] ?? v.idioma : "—" },
+    { icone: "relogio", k: "Duração", val: v.duracao_s ? `${v.duracao_s} s` : "—" },
+    { icone: "sobe", k: "Postado", val: v.publicado ? quando(v.publicado) : "—" },
+    { icone: "fala", k: "Fala captada", val: v.transcricao_chars > 0 ? "Sim" : "Não" },
+    { icone: "busca", k: "Achado com", val: v.termos.join(", ") || "—" },
+  ];
 
-  async function copiar(texto: string, aviso: string) {
-    await navigator.clipboard.writeText(texto);
-    setMenu(false);
-    avisar(aviso);
+  async function copiarLink() {
+    await navigator.clipboard.writeText(v!.url_original);
+    avisar("Link copiado");
   }
 
   return (
-    <>
-      <button className="fv-voltar" onClick={voltar}>
-        <Icone nome="voltar" tamanho={16} /> Voltar
-      </button>
-
-      <div className="fv">
-        <div className="fv-player">
-          <div className="fv-moldura">
-            {tt ? (
-              <iframe src={playerTikTok(tt, true)} title={`Vídeo de ${v.autor}`} allow="autoplay; encrypted-media; fullscreen" allowFullScreen />
-            ) : ig ? (
-              // player oficial do Instagram (o vídeo nunca é copiado)
-              <iframe className="fv-instagram" src={`https://www.instagram.com/reel/${ig}/embed/`} title={`Reel de ${v.autor}`}
-                allow="autoplay; encrypted-media; fullscreen" allowFullScreen />
-            ) : v.capa ? (
-              <img src={capaUrl(v.capa)!} alt="" />
-            ) : (
-              <div className="capa-vazia" />
-            )}
+    <div className="av">
+      <aside className="av-painel av-esq" aria-label="Sobre o vídeo">
+        <div className="av-autor">
+          <span className="av-avatar" aria-hidden="true">{(v.autor_nome || v.autor || "?").replace("@", "").slice(0, 1).toUpperCase()}</span>
+          <span>
+            <b>{v.autor_nome || v.autor}</b>
+            <small>{v.autor}{v.autor_seguidores ? ` · ${num(v.autor_seguidores)} seguidores` : ""}</small>
+          </span>
+        </div>
+        <h1 className="av-titulo">{titulo}</h1>
+        <AbasPilula<AbaEsq> rotulo="Sobre o vídeo" valor={esq} mudar={setEsq} opcoes={[["detalhes", "Detalhes"], ["legenda", "Legenda"]]} />
+        {esq === "detalhes" ? (
+          <ul className="av-lista">
+            {detalhes.map((d) => (
+              <li key={d.k}>
+                <span className="av-quadro"><Icone nome={d.icone} tamanho={15} /></span>
+                <span className="av-lista-k">{d.k}</span>
+                <span className="av-lista-v" title={d.val}>{d.val}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="av-legenda">
+            <p>{v.texto_completo || "Sem legenda."}</p>
+            {v.hashtags.length > 0 && <div className="av-tags">{v.hashtags.slice(0, 12).map((h) => <span key={h}>#{h}</span>)}</div>}
           </div>
+        )}
+        <a className="av-externo" href={v.url_original} target="_blank" rel="noopener noreferrer">
+          <Icone nome="abrir" tamanho={15} /> Abrir no {PLATAFORMA[v.fonte] ?? "site"}
+        </a>
+      </aside>
+
+      <section className="av-centro" aria-label="Vídeo">
+        <div className="av-ferramentas" role="toolbar" aria-label="Ações do vídeo">
+          <button className="av-ferr" onClick={voltar} aria-label="Voltar" data-dica="Voltar · Esc"><Icone nome="voltar" tamanho={17} /></button>
+          <span className="av-sep" aria-hidden="true" />
+          <button className="av-ferr" onClick={() => setSalvando(true)} aria-label="Salvar" data-dica="Salvar"><Icone nome="salvo" tamanho={17} /></button>
+          <button className="av-ferr" onClick={copiarLink} aria-label="Copiar o link" data-dica="Copiar link"><Icone nome="link" tamanho={17} /></button>
+          <a className="av-ferr" href={v.url_original} target="_blank" rel="noopener noreferrer" aria-label="Abrir no site" data-dica="Abrir no site"><Icone nome="abrir" tamanho={17} /></a>
+          <span className="av-sep" aria-hidden="true" />
+          <Link className="av-analisar" href={rotaAnalisar(v.id, voltarPara)}><Icone nome="analise" tamanho={16} /> Analisar</Link>
         </div>
 
-        <div className="fv-conteudo">
-          <Revela className="fv-meta" i={0}>
-            {meta.map((m, n) => (
-              <span key={n}>{n === 0 && <Icone nome={ICONE_FONTE[v.fonte] ?? "play"} tamanho={13} />}{m}</span>
-            ))}
-          </Revela>
+        <div className="av-palco">
+          <div className="av-moldura"><PlayerVideo v={v} /></div>
+        </div>
 
-          <Revela as="h1" className="fv-titulo" i={1}>{titulo}</Revela>
+        <Link className="av-pergunta" href={rotaAnalisar(v.id, voltarPara)}>
+          <span className="av-pergunta-txt">Vale criar um SaaS em cima deste vídeo?</span>
+          <span className="av-pergunta-pe">
+            <span className="av-chip"><Icone nome="ideia" tamanho={14} /> Para o seu nicho</span>
+            <span className="av-pergunta-ir" aria-hidden="true"><Icone nome="cima" tamanho={16} /></span>
+          </span>
+        </Link>
+      </section>
 
-          <Revela className="fv-autor" i={2}>
-            <span className="fv-avatar" aria-hidden="true">{(v.autor_nome || v.autor || "?").replace("@", "").slice(0, 1).toUpperCase()}</span>
-            <span>
-              <b>{v.autor_nome || v.autor}</b>
-              <span className="fraco">{v.autor}{v.autor_seguidores ? ` · ${num(v.autor_seguidores)} seguidores` : ""}</span>
-            </span>
-          </Revela>
-
-          <Revela className="fv-acoes" i={3}>
-            <button className="bt1" onClick={() => setSalvando(true)}><Icone nome="salvo" tamanho={16} /> Salvar</button>
-            <a className="bt2" href={v.url_original} target="_blank" rel="noopener noreferrer"><Icone nome="abrir" tamanho={16} /> Abrir no {PLATAFORMA[v.fonte] ?? "site"}</a>
-            <div className="fv-mais" ref={menuRef}>
-              <button className="bt2 fv-mais-bt" aria-haspopup="menu" aria-expanded={menu} aria-label="Mais ações" onClick={() => setMenu((m) => !m)}>
-                <Icone nome="mais_h" tamanho={18} />
-              </button>
-              {menu && (
-                <div className="menu" role="menu">
-                  <button className="menu-item" role="menuitem" onClick={() => copiar(titulo, "Gancho copiado")}><Icone nome="copiar" tamanho={16} /> Copiar o gancho</button>
-                  <button className="menu-item" role="menuitem" onClick={() => copiar(v.url_original, "Link copiado")}><Icone nome="link" tamanho={16} /> Copiar o link</button>
-                  <button className="menu-item" role="menuitem" disabled style={{ opacity: 0.5 }}><Icone nome="estudio" tamanho={16} /> Levar ao Estúdio <span className="fraco" style={{ marginLeft: "auto", fontSize: 12 }}>em breve</span></button>
-                </div>
-              )}
-            </div>
-          </Revela>
-
-          <Revela as="section" className="fv-cartao fv-numeros" i={4} aria-label="Desempenho">
-            <Desempenho
-              views={v.views}
-              viewsDia={v.views_dia}
-              likes={v.likes}
-              comentarios={v.comentarios}
-              compartilhamentos={v.compartilhamentos}
-              salvamentos={v.salvamentos}
-              publicado={v.publicado}
-            />
-          </Revela>
-
-          {frases.length > 0 && (
-            <Revela as="section" className="fv-cartao" i={5} aria-label="Leitura rápida">
-              <h2 className="fv-h2">Leitura rápida</h2>
+      <aside className="av-painel av-dir" aria-label="Números">
+        <AbasPilula<AbaDir> rotulo="Números" valor={dir} mudar={setDir} opcoes={[["numeros", "Números"], ["leitura", "Leitura"]]} />
+        {dir === "numeros" ? (
+          <div className="av-bloco"><NumerosVideo v={v} /></div>
+        ) : (
+          <div className="av-bloco">
+            {frases.length ? (
               <ul className="fv-leitura">
                 {frases.map((f, n) => (
                   <li key={n}><span className="fv-leitura-icone"><Icone nome={f.icone} tamanho={15} /></span><p>{f.texto}</p></li>
                 ))}
               </ul>
-            </Revela>
-          )}
+            ) : <p className="suave">Ainda não há números suficientes para uma leitura.</p>}
+          </div>
+        )}
 
-          <Revela className="fv-dobras" i={6}>
-            <details className="fv-dobra">
-              <summary>
-                <span>Dá para refazer?</span>
-                <span className="fraco">{aprovados} ok{conferidos.length - aprovados ? ` · ${conferidos.length - aprovados} não` : ""}{aguardando ? ` · ${aguardando} aguardando avaliação` : ""}</span>
-                <Icone nome="baixo" tamanho={16} />
-              </summary>
-              <div className="fv-dobra-corpo">
-                <ListaVeredito itens={v.veredito.itens} />
-              </div>
-            </details>
-            <details className="fv-dobra">
-              <summary>
-                <span>SaaS citados</span>
-                <span className="fraco">{v.saas.length ? `${v.saas.length}` : "chega com o leitor de SaaS"}</span>
-                <Icone nome="baixo" tamanho={16} />
-              </summary>
-              <div className="fv-dobra-corpo">
-                {v.saas.length === 0 ? (
-                  <p className="suave">Quando o leitor de SaaS for ligado, cada app citado aparece aqui com o trecho e o segundo em que aparece.</p>
-                ) : (
-                  <ul className="veredito">
-                    {v.saas.map((s) => (
-                      <li key={s.id}><b>{s.nome}</b>{s.dominio && <span className="fraco">{s.dominio}</span>}<span className="fraco">“{s.trecho}”</span></li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </details>
-            <details className="fv-dobra">
-              <summary>
-                <span>Legenda do post</span>
-                <span className="fraco">{v.hashtags.length ? `${v.hashtags.length} hashtags` : ""}</span>
-                <Icone nome="baixo" tamanho={16} />
-              </summary>
-              <div className="fv-dobra-corpo fv-legenda">{v.texto_completo || "Sem legenda."}</div>
-            </details>
-          </Revela>
-
-          <p className="fv-rodape">
-            {v.transcricao_chars > 0
-              ? `Fala captada pela legenda do TikTok (${v.legenda_fonte === "ASR" ? "fala original" : "tradução automática"}).`
-              : v.fonte === "instagram" ? "O Instagram não traz a fala do vídeo; a leitura usa a legenda do post." : "Sem legenda falada do TikTok."}{" "}
-            Achado com “{v.termos.join("”, “")}” · visto pela primeira vez {quando(v.visto_primeiro)}.
-          </p>
+        <div className="av-secao">
+          <h2>Dá para refazer?</h2>
+          <span className="av-secao-n">{aprovados}/{conferidos.length || v.veredito.itens.length}</span>
         </div>
-      </div>
+        <ListaVeredito itens={v.veredito.itens} />
+
+        <div className="av-secao">
+          <h2>SaaS citados</h2>
+          <span className="av-secao-n">{v.saas.length}</span>
+        </div>
+        {v.saas.length === 0 ? (
+          <p className="av-vazio">Nenhum app citado foi lido ainda. A análise da Wae olha o vídeo inteiro.</p>
+        ) : (
+          <ul className="av-saas">
+            {v.saas.map((s) => <li key={s.id}><b>{s.nome}</b>{s.dominio && <small>{s.dominio}</small>}</li>)}
+          </ul>
+        )}
+      </aside>
       {salvando && <SalvarEm tipo="video" id={v.id} fechar={() => setSalvando(false)} />}
-    </>
+    </div>
   );
 }

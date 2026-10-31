@@ -35,7 +35,10 @@ async def encerrar(request: Request, resposta: Response) -> None:
 
 
 _SELECT_ESPACO = """
-    select c.id as conta_id, c.email, c.nome as conta_nome, e.*
+    select c.id as conta_id, c.email, c.nome as conta_nome,
+           c.identificador as conta_identificador, c.bio as conta_bio,
+           c.whatsapp as conta_whatsapp, c.avatar as conta_avatar,
+           c.cor_perfil as conta_cor_perfil, c.cor_personagem as conta_cor_personagem, c.criado_em as conta_criado_em, e.*
     from contas c
     join membros m on m.conta_id = c.id
     join espacos e on e.id = m.espaco_id
@@ -102,13 +105,18 @@ async def atual(request: Request) -> dict:
             claims = await auth.verificar(cabecalho[7:].strip())
         except auth.TokenInvalido:
             raise HTTPException(401, "Sua sessão acabou. Entre de novo.")
-        return await _conta_do_supabase(claims)
+        conta = await _conta_do_supabase(claims)
+        conta["_email_autenticado"] = claims.get("email")
+        return conta
 
     sid = request.cookies.get(COOKIE)
     if not sid or config().ambiente != "teste":
         raise HTTPException(401, "Entre para continuar.")
     r = await db.um(
-        """select c.id as conta_id, c.email, c.nome as conta_nome, e.*
+        """select c.id as conta_id, c.email, c.nome as conta_nome,
+                  c.identificador as conta_identificador, c.bio as conta_bio,
+                  c.whatsapp as conta_whatsapp, c.avatar as conta_avatar,
+                  c.cor_perfil as conta_cor_perfil, c.cor_personagem as conta_cor_personagem, c.criado_em as conta_criado_em, e.*
            from sessoes s
            join contas c on c.id = s.conta_id
            join membros m on m.conta_id = c.id

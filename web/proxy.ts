@@ -1,8 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { destinoSeguro } from "@/lib/auth";
 
-// Páginas que abrem sem login. O Início é a porta de entrada: a busca é que pede login.
-const PUBLICAS = ["/inicio", "/entrar", "/auth"];
+// Só a entrada e a confirmação do e-mail abrem sem uma sessão válida.
+const PUBLICAS = new Set(["/entrar", "/auth/confirmar"]);
 
 /**
  * Antes de cada pedido: renova a sessão do Supabase (cookies), manda quem não entrou para /entrar e,
@@ -12,9 +13,9 @@ export async function proxy(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
 
   // o link do e-mail pode voltar para a raiz com ?code=… (quando o endereço de volta não está liberado)
-  if (pathname === "/") {
+  if (pathname === "/" && searchParams.has("code")) {
     const url = request.nextUrl.clone();
-    url.pathname = searchParams.get("code") ? "/auth/confirmar" : "/inicio";
+    url.pathname = "/auth/confirmar";
     return NextResponse.redirect(url);
   }
 
@@ -33,37 +34,43 @@ export async function proxy(request: NextRequest) {
   });
 
   // Não colocar nada entre createServerClient e getClaims (recomendação do Supabase).
-  const { data } = await supabase.auth.getClaims();
-  const logado = !!data?.claims;
+  const { data, error } = await supabase.auth.getClaims();
+  const logado = !error && !!data?.claims?.sub;
 
-  if (pathname.startsWith("/api/")) {
-    if (!logado) return resposta; // a API responde 401 e o site leva para /entrar
-    const { data: sessao } = await supabase.auth.getSession(); // já conferida por getClaims acima
-    const cabecalhos = new Headers(request.headers);
-    if (sessao.session) cabecalhos.set("authorization", `Bearer ${sessao.session.access_token}`);
-    const comToken = NextResponse.next({ request: { headers: cabecalhos } });
-    resposta.cookies.getAll().forEach((c) => comToken.cookies.set(c));
-    return comToken;
+  function finalizar(saida: NextResponse) {
+    resposta.cookies.getAll().forEach((cookie) => saida.cookies.set(cookie));
+    saida.headers.set("Cache-Control", "private, no-store");
+    return saida;
   }
 
-  const publica = PUBLICAS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  if (pathname === "/api" || pathname.startsWith("/api/")) {
+    const semLogin = () => finalizar(NextResponse.json({ mensagem: "Entre para continuar." }, { status: 401 }));
+    if (!logado) return semLogin();
+    const { data: sessao } = await supabase.auth.getSession(); // já conferida por getClaims acima
+    const cabecalhos = new Headers(request.headers);
+    if (!sessao.session) return semLogin();
+    cabecalhos.set("authorization", `Bearer ${sessao.session.access_token}`);
+    const comToken = NextResponse.next({ request: { headers: cabecalhos } });
+    return finalizar(comToken);
+  }
+
+  const publica = PUBLICAS.has(pathname);
   if (!logado && !publica) {
     const url = request.nextUrl.clone();
     url.pathname = "/entrar";
     url.search = pathname === "/" ? "" : `?proximo=${encodeURIComponent(pathname + request.nextUrl.search)}`;
-    return NextResponse.redirect(url);
+    return finalizar(NextResponse.redirect(url));
   }
   if (logado && pathname === "/entrar") {
-    const proximo = searchParams.get("proximo");
-    const destino = proximo && proximo.startsWith("/") && !proximo.startsWith("//") ? proximo : "/inicio";
-    return NextResponse.redirect(new URL(destino, request.url));
+    return finalizar(NextResponse.redirect(new URL(destinoSeguro(searchParams.get("proximo")), request.url)));
   }
-  return resposta;
+  if (pathname === "/") return finalizar(NextResponse.redirect(new URL("/inicio", request.url)));
+  return finalizar(resposta);
 }
 
 export const config = {
   matcher: [
-    // tudo, menos arquivos estáticos, imagens e as capas (que não precisam de login)
-    "/((?!_next/|api/capas|marca/|icon.png|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Exceções restritas aos arquivos estáticos reais; capas e rotas /auth também são protegidas.
+    "/((?!_next/static/|_next/image|marca/|icon\\.png$|favicon\\.ico$).*)",
   ],
 };

@@ -82,7 +82,12 @@ async def test_cookie_local_so_vale_nos_testes(cliente, monkeypatch):
     assert (await cliente.get("/api/eu")).status_code == 401
 
 
-async def test_inicio_abre_sem_login(anonimo):
+async def test_inicio_e_capas_exigem_login(anonimo):
+    for caminho in ("/api/publico/resumo", "/api/publico/em-alta", "/api/capas/exemplo.jpg"):
+        assert (await anonimo.get(caminho)).status_code == 401
+
+
+async def test_inicio_abre_com_login(anonimo):
     from radar.biblioteca import gravar_video
 
     from conftest import video_simulado
@@ -90,8 +95,9 @@ async def test_inicio_abre_sem_login(anonimo):
     async with db.conexao() as con:
         await gravar_video(con, video_simulado(1), "ai tool")
         await con.execute("update videos set capa_path = 'tt_sim1.jpg'")
-    assert (await anonimo.get("/api/publico/resumo")).json()["videos_total"] == 1
-    itens = (await anonimo.get("/api/publico/em-alta")).json()["itens"]
+    h = {"Authorization": f"Bearer {token('inicio@exemplo.com')}"}
+    assert (await anonimo.get("/api/publico/resumo", headers=h)).json()["videos_total"] == 1
+    itens = (await anonimo.get("/api/publico/em-alta", headers=h)).json()["itens"]
     assert [v["id"] for v in itens] == ["tt:sim1"]
     # o resto continua fechado
     assert (await anonimo.get("/api/videos")).status_code == 401

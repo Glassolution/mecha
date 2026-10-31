@@ -8,6 +8,8 @@ const nextConfig: NextConfig = {
     return [{ source: "/api/:path*", destination: `${API}/api/:path*` }];
   },
   images: { unoptimized: true },
+  // a primeira análise de um vídeo busca comentários e pesquisa na web: pode levar até ~3 minutos (padrão: 30 s)
+  experimental: { proxyTimeout: 240_000 },
 };
 
 export default nextConfig;

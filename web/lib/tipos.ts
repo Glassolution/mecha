@@ -24,9 +24,13 @@ export type Video = {
   nota: number | null;
   views_dia: number | null;
   nichos: string[];
+  potencial?: number | null;
+  potencial_motivo?: string | null;
 };
 
 export type FichaVideo = Video & {
+  garimpo_id?: string | null;
+  garimpo_modo?: "ideia" | "criativo" | null;
   texto_completo: string | null;
   hashtags: string[];
   transcricao_chars: number;
@@ -65,7 +69,7 @@ export type Ideia = {
   serie_30d?: number[];
 };
 
-export type EstadoFonte = { fonte: string; status: string; termo?: string | null; novos?: number; detalhe?: string };
+export type EstadoFonte = { fonte: string; status: string; termo?: string | null; novos?: number; detalhe?: string; etapa?: "preparando" | "buscando" | "organizando" | "cache" | "concluido" };
 
 export type Garimpo = {
   id: string;
@@ -80,12 +84,39 @@ export type Garimpo = {
   transcritos: number;
   com_saas: number;
   ideias_novas: number;
+  fracos?: number;
   criado_em: string;
   fim_em: string | null;
 };
 
+export type AnaliseOportunidades = {
+  status: "analisando" | "pronto" | "erro";
+  etapa: "comentarios" | "analise" | null;
+  erro: string | null;
+  criado_em: string;
+  atualizado_em: string;
+  resultado: {
+    nicho: string;
+    resumo: string;
+    dores: {
+      titulo: string;
+      descricao: string;
+      forca_do_sinal: "alta" | "media" | "baixa";
+      ideia_de_saas: string;
+      por_que_software: string;
+      evidencias: { video_id: string; comentario: string; fonte: string; url: string }[];
+    }[];
+    saas_existentes: { nome: string; o_que_faz: string; publico: string; preco: string | null; lacuna: string; url: string | null }[];
+    limitacoes: string;
+    evidencias_descartadas: number;
+    videos_lidos: number;
+    comentarios_lidos: number;
+  } | null;
+};
+
 export type Eu = {
-  conta: { email: string; nome: string | null };
+  admin?: boolean;
+  conta: { email: string; nome: string | null; identificador?: string | null; bio?: string | null; whatsapp?: string | null; avatar?: string; cor_perfil?: string; cor_personagem?: string; criado_em?: string | null };
   espaco: {
     id: string;
     nome: string;
@@ -105,3 +136,6 @@ export type Eu = {
 };
 
 export type Colecao = { id: string; nome: string; itens: number; capas: string[] | null };
+
+export type PlanoDisponivel = { id: "gratis" | "pro" | "agencia"; nome: string; garimpos: number; itens_completos: number | null; preco_mensal_centavos: number };
+export type CatalogoPlanos = { moeda: "BRL"; periodicidade: "mensal"; contratacao_disponivel: boolean; itens: PlanoDisponivel[] };

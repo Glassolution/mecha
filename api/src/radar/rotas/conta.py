@@ -1,11 +1,13 @@
 """Conta, espaço e entrada."""
 
+import re
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from psycopg.errors import UniqueViolation
+from pydantic import BaseModel, Field, field_validator
 
-from radar import db, sessao
+from radar import admin, db, sessao
 from radar.armazenamento import dominio_do_site, logo_do_site
 from radar.config import config
 from radar.nichos import NICHOS
@@ -17,7 +19,12 @@ r = APIRouter(prefix="/api")
 def _publico(e: dict, u: dict, meu_saas: dict | None) -> dict:
     plano = PLANOS[e["plano"]]
     return {
-        "conta": {"email": e["email"], "nome": e["conta_nome"]},
+        "admin": admin.permitido(e.get("_email_autenticado")),
+        "conta": {"email": e["email"], "nome": e["conta_nome"],
+                  "identificador": e.get("conta_identificador"), "bio": e.get("conta_bio"),
+                  "whatsapp": e.get("conta_whatsapp"), "avatar": e.get("conta_avatar", "acenando"),
+                  "cor_perfil": e.get("conta_cor_perfil", "amarelo"),
+                  "cor_personagem": e.get("conta_cor_personagem", "amarelo"), "criado_em": e.get("conta_criado_em")},
         "espaco": {
             "id": e["id"], "nome": e["nome"], "interesse": e["interesse"], "nichos": e["nichos"],
             "pais": e["pais"], "idioma": e["idioma"], "ver_ingles": e["ver_ingles"],
@@ -33,6 +40,70 @@ def _publico(e: dict, u: dict, meu_saas: dict | None) -> dict:
 async def eu(e=Depends(sessao.atual)):
     meu = await db.um("select nome, tipo, link, o_que_faz from meus_saas where espaco_id = %s order by nome limit 1", (e["id"],))
     return _publico(e, await uso(e["id"]), meu)
+
+
+@r.get("/planos")
+async def listar_planos(e=Depends(sessao.atual)):
+    return {
+        "moeda": "BRL", "periodicidade": "mensal", "contratacao_disponivel": False,
+        "itens": [{"id": id, "nome": p["nome"], "garimpos": p["garimpos"],
+                   "itens_completos": p["itens_completos"], "preco_mensal_centavos": p["preco_mensal_centavos"]}
+                  for id, p in PLANOS.items()],
+    }
+
+
+class Identidade(BaseModel):
+    nome: str | None = Field(None, min_length=1, max_length=60)
+    identificador: str | None = Field(None, min_length=3, max_length=30, pattern=r"^[a-z0-9_]+$")
+    bio: str | None = Field(None, max_length=80)
+    whatsapp: str | None = Field(None, max_length=30)
+    avatar: Literal["acenando", "pensando", "pesquisando", "bracos-abertos", "andando", "pulando", "sentado", "oi"] | None = None
+    cor_perfil: Literal["amarelo", "coral", "salvia", "azul", "laranja", "lilas", "rosa"] | None = None
+    cor_personagem: Literal["amarelo", "coral", "salvia", "azul", "laranja", "lilas", "rosa", "menta"] | None = None
+
+    @field_validator("nome", "identificador", "bio", mode="before")
+    @classmethod
+    def limpar_texto(cls, valor):
+        return valor.strip() if isinstance(valor, str) else valor
+
+    @field_validator("identificador", mode="before")
+    @classmethod
+    def identificador_minusculo(cls, valor):
+        return valor.strip().lower() if isinstance(valor, str) else valor
+
+    @field_validator("whatsapp", mode="before")
+    @classmethod
+    def telefone(cls, valor):
+        if valor is None or (isinstance(valor, str) and not valor.strip()):
+            return None
+        if not isinstance(valor, str) or not re.fullmatch(r"\+?[\d\s().-]+", valor.strip()):
+            raise ValueError("Confira o WhatsApp informado.")
+        digitos = re.sub(r"\D", "", valor)
+        if not 8 <= len(digitos) <= 15:
+            raise ValueError("Informe o número com DDD e código do país.")
+        return "+" + digitos
+
+
+@r.get("/conta/identificador")
+async def identificador_disponivel(valor: str = Query(min_length=3, max_length=30, pattern=r"^[a-z0-9_]+$"), e=Depends(sessao.atual)):
+    existente = await db.um("select id from contas where lower(identificador) = %s and id <> %s", (valor, e["conta_id"]))
+    return {"disponivel": existente is None}
+
+
+@r.patch("/conta")
+async def mudar_conta(p: Identidade, e=Depends(sessao.atual)):
+    campos = p.model_dump(exclude_unset=True)
+    for obrigatorio in ("nome", "avatar", "cor_perfil", "cor_personagem"):
+        if obrigatorio in campos and campos[obrigatorio] is None:
+            raise HTTPException(422, "Nome, avatar e cor precisam de um valor válido.")
+    if not campos:
+        return {"ok": True}
+    sets = ", ".join(f"{k} = %s" for k in campos)
+    try:
+        await db.executar(f"update contas set {sets} where id = %s", (*campos.values(), e["conta_id"]))
+    except UniqueViolation:
+        raise HTTPException(409, "Esse identificador já está em uso. Escolha outro.")
+    return {"ok": True}
 
 
 class Perfil(BaseModel):

@@ -1,0 +1,58 @@
+.previa { position: relative; padding-left: 32px; width: 110%; margin-bottom: 28px; pointer-events: none; user-select: none; }
+.previa::after { content: ""; position: absolute; inset: 83% 0 -2px; background: linear-gradient(transparent, #f3f3f1); }
+.janela { border: 1px solid #e5e5df; border-radius: 19px; background: #fafaf8; box-shadow: 0 16px 50px #00000008; overflow: hidden; }
+.barra { height: 30px; padding: 0 13px; display: flex; align-items: center; justify-content: space-between; background: #fff; border-bottom: 1px solid #eeeee9; color: #92928a; }
+.barra > span { display: flex; gap: 4px; }
+.barra i { width: 5px; height: 5px; background: #d3d3ce; border-radius: 50%; }
+.barra small { font-size: 8px; }
+.app { display: flex; height: 435px; color: #171815; }
+.sidebar { width: 148px; flex-shrink: 0; margin: 8px 0 8px 8px; padding: 16px 10px 10px; background: #fff; border-radius: 19px; display: flex; flex-direction: column; }
+.marca { margin: 0 4px 16px; }
+.grupo { margin-bottom: 13px; }
+.grupo p { margin: 0 7px 7px; font-size: 8px; color: #a0a09a; }
+.grupo > div, .rodapeSidebar > div { min-height: 26px; padding: 5px 7px; display: flex; align-items: center; gap: 7px; color: #989a94; font-size: 9px; white-space: nowrap; }
+.grupo svg, .rodapeSidebar svg { width: 13px; height: 13px; flex-shrink: 0; }
+.grupo > .ativo { border-radius: 99px; background: #f5f5f3; color: #272923; font-weight: 600; }
+.sidebar kbd { margin-left: auto; border-radius: 3px; padding: 1px 3px; background: #e5e5e2; font: 7px var(--f-ui), sans-serif; color: #898b85; }
+.rodapeSidebar { margin-top: auto; }
+.rodapeSidebar > .perfil { border-top: 1px solid #efefeb; margin-top: 5px; padding-top: 10px; color: #585a52; }
+.perfil b { width: 21px; height: 21px; display: grid; place-items: center; background: #f5cf32; border-radius: 50%; color: #33351f; font-size: 8px; }
+.perfil > svg:last-child { margin-left: auto; }
+.conteudo { flex: 1; min-width: 0; padding: 25px 22px 0; text-align: center; background: #fafaf8; }
+.mascote { display: flex; justify-content: center; align-items: center; height: 92px; margin-bottom: 10px; }
+.mascote img { max-height: 92px; width: auto; object-fit: contain; }
+.conteudo h2 { margin: 0; font-size: 23px; line-height: 1.15; font-weight: 550; letter-spacing: -.8px; }
+.descricao { max-width: 300px; margin: 10px auto 20px; color: #85857d; font-size: 8px; line-height: 1.7; }
+.tarefas { max-width: 420px; margin: 0 auto; border: 1px solid #e9e9e3; border-radius: 13px; background: #fff; text-align: left; overflow: hidden; }
+.topoTarefas { display: flex; align-items: center; gap: 10px; padding: 14px 15px; border-bottom: 1px solid #eeeeea; font-size: 8px; color: #56584f; }
+.topoTarefas b { font-weight: 550; }
+.topoTarefas > span { margin-left: auto; color: #96978f; font-size: 7px; }
+.topoTarefas i { width: 38px; height: 3px; background: #eeeee8; border-radius: 5px; }
+.tarefas > p { display: flex; justify-content: space-between; font-size: 7px; color: #a0a18f; letter-spacing: .6px; padding: 11px 15px 5px; }
+.tarefas > p > span { letter-spacing: 0; }
+.tarefa { display: flex; align-items: center; gap: 8px; min-height: 43px; padding: 8px 15px; }
+.tarefa > span { display: grid; place-items: center; width: 25px; height: 25px; border: 1px solid #eeeeea; border-radius: 7px; color: #929581; flex-shrink: 0; }
+.tarefa > div { display: grid; gap: 3px; min-width: 0; }
+.tarefa b { font-size: 8px; font-weight: 500; }
+.tarefa small { font-size: 6px; color: #9a9c90; white-space: nowrap; }
+.tarefa em { margin-left: auto; font-size: 7px; font-style: normal; border: 1px solid #e8e8e1; border-radius: 5px; padding: 4px 7px; color: #75786a; }
+.tarefa > .comecar { background: #f5cf32; border-color: #f5cf32; color: #33341e; }
+.paginas { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #f0f0ea; padding: 10px 15px; font-size: 7px; color: #9a9b91; }
+.paginas > span:nth-child(2) { display: flex; align-items: center; gap: 10px; }
+.paginas b { display: grid; place-items: center; background: #f4f4ef; color: #56594b; width: 17px; height: 17px; border-radius: 4px; }
+@media (min-width: 1550px) {
+  .previa { padding-left: 45px; }
+  .app { height: 480px; }
+  .sidebar { width: 165px; padding-top: 20px; }
+  .grupo > div, .rodapeSidebar > div { min-height: 29px; font-size: 10px; }
+  .grupo p { font-size: 9px; }
+  .conteudo { padding: 30px 30px 0; }
+  .mascote { height: 105px; }
+  .mascote img { max-height: 105px; }
+  .conteudo h2 { font-size: 28px; }
+  .descricao { max-width: 340px; font-size: 9px; }
+  .tarefa { min-height: 47px; }
+  .tarefa b { font-size: 9px; }
+  .tarefa small { font-size: 7px; }
+}
+@media (max-width: 1050px) { .previa { padding-left: 22px; width: 145%; } }

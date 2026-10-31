@@ -9,9 +9,20 @@ const desenhos: Record<string, ReactNode> = {
   salvos: <><circle cx="11.5" cy="12" r="4.2" /><path d="M15.7 8v7a2.5 2.5 0 0 0 5 0v-3a9.5 9.5 0 1 0-4 7.8" /></>,
   estudio: <><path d="M11 20H6a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4h12a4 4 0 0 1 4 4v6M3 6l7.2 5a3.2 3.2 0 0 0 3.6 0L21 6" /><path d="m17 13 1.8 3.1 3.5.7-2.4 2.6.4 3.6-3.3-1.5-3.3 1.5.4-3.6-2.4-2.6 3.5-.7Z" /></>,
   busca: <><circle cx="10.5" cy="10.5" r="7.5" /><path d="m16 16 5 5" /></>,
+  "nova-pasta": <><path d="M11 19.5H5A2.5 2.5 0 0 1 2.5 17V6.5A2.5 2.5 0 0 1 5 4h3.6a2 2 0 0 1 1.5.7L11.5 6.5H19A2.5 2.5 0 0 1 21.5 9v3" /><path d="M18 15v6M15 18h6" /></>,
   avisos: <><path d="M5 16.5c2-2 2-4 2-7a5 5 0 0 1 10 0c0 3 0 5 2 7Z" /><path d="M10 20h4" /></>,
 };
 
+/** Pasta colorida de uma coleção: contorno na cor e miolo clarinho. */
+export function IconePasta({ cor, tamanho = 18 }: { cor: string; tamanho?: number }) {
+  return (
+    <svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none" stroke={cor} strokeWidth="1.6" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2.5 7A2.5 2.5 0 0 1 5 4.5h3.6a2 2 0 0 1 1.5.7l1.4 1.8H19A2.5 2.5 0 0 1 21.5 9.5V17A2.5 2.5 0 0 1 19 19.5H5A2.5 2.5 0 0 1 2.5 17Z" fill={cor} fillOpacity=".14" />
+      <path d="M2.5 10h19" />
+    </svg>
+  );
+}
+
 export function IconeSidebar({ nome }: { nome: string }) {
-  return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{desenhos[nome]}</svg>;
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{desenhos[nome]}</svg>;
 }

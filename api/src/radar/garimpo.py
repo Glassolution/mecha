@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 
-from radar import db
+from radar import db, triagem
 from radar.armazenamento import copiar_capa
 from radar.biblioteca import SELECT_VIDEO, cartao, gravar_video
 from radar.coleta.base import Coletor, ErroFonte, Parado
@@ -109,21 +109,45 @@ def _aceito(v, fonte: str, garimpo: dict) -> bool:
     return True
 
 
+# buscas da mesma fonte rodando ao mesmo tempo na Apify (o plano grátis limita a memória das execuções)
+_SIMULTANEAS = 3
+
+
 async def _buscar_fonte(garimpo: dict, fonte: str, coletor: Coletor, cli: httpx.AsyncClient) -> None:
     gid = str(garimpo["id"])
     deve_parar = lambda: _parado(gid)  # noqa: E731
     novos_total = 0
-    for termo in garimpo["termos"]:
-        for busca, idioma in _buscas(termo, garimpo):
+    planos = [(termo, busca, idioma) for termo in garimpo["termos"] for busca, idioma in _buscas(termo, garimpo)]
+    caches = [await _do_cache(busca, fonte, idioma) for _, busca, idioma in planos]
+    vaga = asyncio.Semaphore(_SIMULTANEAS)
+
+    async def buscar(busca: str, idioma: str):
+        async with vaga:
+            if await deve_parar():
+                raise Parado()
+            return await coletor.buscar(busca, idioma, config().resultados_por_busca, deve_parar)
+
+    # as buscas sem cache saem juntas (uma vez cada); os resultados são guardados na ordem das palavras
+    lancadas: set[tuple[str, str]] = set()
+    tarefas = []
+    for (_, busca, idioma), ids in zip(planos, caches):
+        novo = ids is None and (busca, idioma) not in lancadas
+        lancadas.add((busca, idioma))
+        tarefas.append(asyncio.create_task(buscar(busca, idioma)) if novo else None)
+    guardados: dict[tuple[str, str], list[str]] = {}
+    try:
+        for (termo, busca, idioma), ids, tarefa in zip(planos, caches, tarefas):
+            ids = ids if ids is not None else guardados.get((busca, idioma))
             if await deve_parar():
                 raise Parado()
             onde = "em inglês" if busca != termo else _ONDE.get(fonte, "")
-            await _fonte(gid, fonte, status="buscando", termo=termo, novos=novos_total)
+            await _fonte(gid, fonte, status="buscando", etapa="preparando", termo=termo, novos=novos_total)
             await _agora(gid, f"Buscando “{termo}” {onde}".strip())
-            ids = await _do_cache(busca, fonte, idioma)
-            if ids is None:
-                resultado = await coletor.buscar(busca, idioma, config().resultados_por_busca, deve_parar)
+            if tarefa is not None:
+                await _fonte(gid, fonte, etapa="buscando")
+                resultado = await tarefa
                 aceitos = [v for v in resultado.videos if _aceito(v, fonte, garimpo)]
+                await _fonte(gid, fonte, etapa="organizando")
                 await _agora(gid, f"Guardando {len(aceitos)} vídeos de “{termo}”")
                 capas = await asyncio.gather(*(copiar_capa(cli, v.id, v.capa_origem) if v.capa_origem else _nada()
                                                for v in aceitos))
@@ -142,12 +166,28 @@ async def _buscar_fonte(garimpo: dict, fonte: str, coletor: Coletor, cli: httpx.
                     )
                     await con.execute("update garimpos set custo_usd = custo_usd + %s where id = %s",
                                       (resultado.custo_usd, gid))
+                guardados[(busca, idioma)] = ids
+            else:
+                await _fonte(gid, fonte, etapa="cache")
+                await _agora(gid, f"Recuperando resultados recentes de “{termo}”")
+            if garimpo["modo"] == "ideia" and ids:
+                await _agora(gid, f"Separando os vídeos com potencial de SaaS de “{termo}”")
+                ids, fracos = await triagem.filtrar(ids, garimpo["idiomas"])
+                garimpo["_fracos"] |= fracos
+                await db.executar("update garimpos set fracos = %s where id = %s", (len(garimpo["_fracos"]), gid))
             cartoes = await _ligar(gid, ids, termo)
             novos_total += len(cartoes)
             if cartoes:
                 await publicar(gid, "chegou", {"videos": cartoes})
+            await _fonte(gid, fonte, novos=novos_total)
             await _contagens(gid)
-    await _fonte(gid, fonte, status="pronto", termo=None, novos=novos_total)
+    finally:
+        # se a fonte parou no meio (erro ou Parar), as buscas que ainda corriam são canceladas
+        for t in tarefas:
+            if t is not None and not t.done():
+                t.cancel()
+        await asyncio.gather(*(t for t in tarefas if t is not None), return_exceptions=True)
+    await _fonte(gid, fonte, status="pronto", etapa="concluido", termo=None, novos=novos_total)
 
 
 def _buscas(termo: str, garimpo: dict) -> list[tuple[str, str]]:
@@ -169,7 +209,7 @@ async def _parado(garimpo_id: str) -> bool:
 
 
 async def rodar(garimpo_id: str, coletores: dict[str, Coletor]) -> None:
-    """Roda o garimpo inteiro, uma fonte depois da outra. Idempotente: garimpo já concluído ou parado não roda de novo.
+    """Roda o garimpo inteiro, com as fontes ao mesmo tempo. Idempotente: garimpo já concluído ou parado não roda de novo.
 
     `coletores` tem um provedor por fonte aberta ({"tiktok": …, "instagram": …}); fonte sem provedor dá erro só nela.
     """
@@ -178,32 +218,36 @@ async def rodar(garimpo_id: str, coletores: dict[str, Coletor]) -> None:
     if not g or g["status"] in ("concluido", "parado", "erro"):
         return
     await db.executar("update garimpos set status = 'garimpando' where id = %s", (gid,))
+    g["_fracos"] = set()  # vídeos que a triagem tirou, somados entre as fontes
     await publicar(gid, "status", {"status": "garimpando"})
 
     for fonte in g["fontes"]:
         if not FONTES.get(fonte, {}).get("aberta"):
             await _fonte(gid, fonte, status="trancada", detalhe=FONTES.get(fonte, {}).get("motivo", "Indisponível."))
 
-    erros = 0
+    async def uma_fonte(fonte: str, cli: httpx.AsyncClient) -> bool:
+        """Roda uma fonte; devolve True se ela deu erro."""
+        nome = FONTES[fonte]["nome"]
+        try:
+            coletor = coletores.get(fonte)
+            if coletor is None:
+                raise ErroFonte(f"O {nome} ainda não foi conectado ao servidor.")
+            await _buscar_fonte(g, fonte, coletor, cli)
+        except Parado:
+            pass
+        except ErroFonte as e:
+            await _fonte(gid, fonte, status="erro", detalhe=e.motivo)
+            return True
+        except Exception:
+            log.exception("garimpo %s: falha no %s", gid, fonte)
+            await _fonte(gid, fonte, status="erro", detalhe="Algo deu errado nesta busca. Tente de novo em 1 minuto.")
+            return True
+        return False
+
+    # TikTok e Instagram ao mesmo tempo: o garimpo leva o tempo da fonte mais lenta, não a soma
     async with httpx.AsyncClient(timeout=20) as cli:
-        for fonte in [f for f in g["fontes"] if FONTES.get(f, {}).get("aberta")]:
-            if await _parado(gid):
-                break
-            nome = FONTES[fonte]["nome"]
-            try:
-                coletor = coletores.get(fonte)
-                if coletor is None:
-                    raise ErroFonte(f"O {nome} ainda não foi conectado ao servidor.")
-                await _buscar_fonte(g, fonte, coletor, cli)
-            except Parado:
-                break
-            except ErroFonte as e:
-                erros += 1
-                await _fonte(gid, fonte, status="erro", detalhe=e.motivo)
-            except Exception:
-                erros += 1
-                log.exception("garimpo %s: falha no %s", gid, fonte)
-                await _fonte(gid, fonte, status="erro", detalhe="Algo deu errado nesta busca. Tente de novo em 1 minuto.")
+        falhas = await asyncio.gather(*(uma_fonte(f, cli) for f in g["fontes"] if FONTES.get(f, {}).get("aberta")))
+    erros = sum(falhas)
 
     status = await _status(gid)
     if status == "parado":
@@ -212,7 +256,7 @@ async def rodar(garimpo_id: str, coletores: dict[str, Coletor]) -> None:
     final = "erro" if abertas and erros == len(abertas) else "concluido"
     c = await db.um(
         """update garimpos set status = %s, fim_em = now(), agora = null where id = %s and status = 'garimpando'
-           returning status, vistos, transcritos, com_saas, ideias_novas""",
+           returning status, vistos, transcritos, com_saas, ideias_novas, fracos""",
         (final, gid),
     )
     if c:

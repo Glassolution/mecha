@@ -1,6 +1,7 @@
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseServidor } from "@/lib/supabase/servidor";
+import { destinoSeguro } from "@/lib/auth";
 
 // Volta do link mágico (e, no futuro, do Google): troca o código pela sessão e segue para o app.
 export async function GET(request: NextRequest) {
@@ -8,8 +9,7 @@ export async function GET(request: NextRequest) {
   const code = url.searchParams.get("code");
   const tokenHash = url.searchParams.get("token_hash");
   const tipo = url.searchParams.get("type") as EmailOtpType | null;
-  const proximo = url.searchParams.get("proximo");
-  const destino = proximo && proximo.startsWith("/") && !proximo.startsWith("//") ? proximo : "/inicio";
+  const destino = destinoSeguro(url.searchParams.get("proximo"));
 
   const supabase = await supabaseServidor();
   let erro: string | null = "O link não veio completo.";

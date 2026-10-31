@@ -1,0 +1,92 @@
+.pagina {
+  --texto: #171717;
+  --muted: #666666;
+  --ink: #171717;
+  min-height: 100svh;
+  display: grid;
+  grid-template-columns: 47% 53%;
+  padding: 20px;
+  background: #ffffff;
+  color: var(--texto);
+  color-scheme: light;
+  font-size: 14px;
+}
+.pagina button, .pagina input { -webkit-tap-highlight-color: transparent; }
+.pagina button:focus-visible, .pagina input:focus-visible { outline: 2px solid #171717; outline-offset: 4px; }
+.ladoFormulario { position: relative; display: flex; align-items: center; justify-content: center; padding: 64px 40px 90px; isolation: isolate; }
+.ladoFormulario::after { content: ""; position: absolute; z-index: -1; inset: 72% 0 0; background-image: radial-gradient(#00000020 0.65px, transparent 0.65px); background-size: 22px 22px; mask-image: linear-gradient(transparent, #0005); }
+.formulario { width: 100%; max-width: 408px; text-align: center; }
+.marca { display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 34px; }
+.marca img { object-fit: contain; }
+.cabecalho h1, .confirmacao h1 { font-size: clamp(27px, 2.6vw, 37px); font-weight: 600; letter-spacing: -1.5px; line-height: 1.2; }
+.cabecalho p { color: var(--muted); font-size: 15px; line-height: 1.75; margin: 16px auto 32px; max-width: 355px; }
+.campos { display: grid; gap: 18px; text-align: left; }
+.campoGrupo { display: grid; gap: 9px; }
+.campoGrupo label { color: #414141; font-size: 12px; font-weight: 500; }
+.campoGrupo input { width: 100%; height: 56px; background: #fafafa; border: 1px solid #e3e3e3; border-radius: 13px; padding: 0 17px; transition: border-color .2s, background .2s; outline: none; }
+.campoGrupo input::placeholder { color: #808080; }
+.campoGrupo input:hover { border-color: #b5b5b5; }
+.campoGrupo input:focus { background: #ffffff; border-color: #777777; }
+.rotuloSenha { display: flex; align-items: center; justify-content: space-between; }
+.rotuloSenha button { font-size: 11px; color: var(--muted); }
+.rotuloSenha button:hover { color: var(--texto); }
+.senha { position: relative; }
+.senha input { padding-right: 52px; }
+.senha button { position: absolute; right: 9px; top: 9px; height: 38px; width: 38px; display: grid; place-items: center; color: #737373; border-radius: 8px; }
+.senha button:hover { background: #00000006; color: var(--texto); }
+.principal, .secundario { width: 100%; min-height: 52px; border-radius: 999px; display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 14px; font-weight: 600; transition: background .2s, transform .2s, opacity .2s; }
+.principal { background: #171717; color: #ffffff; margin-top: 6px; }
+.principal:hover:not(:disabled) { background: #333333; transform: translateY(-1px); }
+.principal:disabled { opacity: .5; cursor: not-allowed; }
+.secundario { background: #f5f5f5; border: 1px solid #e5e5e5; color: #252525; }
+.secundario:hover { background: #ebebeb; }
+.secundario:disabled { cursor: wait; opacity: .5; }
+.divisor { display: flex; align-items: center; gap: 14px; margin: 21px 0; color: #767676; font-size: 12px; }
+.divisor::before, .divisor::after { content: ""; flex: 1; height: 1px; background: #e8e8e8; }
+.nota { color: #737373; font-size: 11px; margin-top: 18px; line-height: 1.7; }
+.rodape { position: absolute; bottom: 15px; left: 40px; right: 40px; display: flex; align-items: center; justify-content: center; gap: 26px; color: #737373; font-size: 10px; }
+.rodape span:last-child { display: flex; align-items: center; gap: 6px; }
+.erro { font-size: 12px; color: #b42318; background: #fff4f2; border: 1px solid #f5d0ca; padding: 11px 14px; border-radius: 10px; line-height: 1.6; }
+.voltar { display: inline-flex; align-items: center; gap: 7px; margin-top: 24px; font-size: 13px; color: var(--muted); }
+.voltar:hover { color: var(--texto); }
+.confirmacao { display: grid; justify-items: center; gap: 20px; }
+.confirmacao p { color: var(--muted); line-height: 1.8; overflow-wrap: anywhere; }
+.confirmacao strong { color: var(--texto); }
+.confirmacao .dica { font-size: 12px; }
+.iconeEmail { width: 64px; height: 64px; border: 1px solid #dedede; border-radius: 22px; display: grid; place-items: center; background: #f5f5f5; color: #171717; margin-bottom: 6px; }
+.carregando { width: 15px; height: 15px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: girar .7s linear infinite; }
+@keyframes girar { to { transform: rotate(360deg); } }
+.apresentacao { min-width: 0; overflow: hidden; border-radius: 30px; background: #f3f3f1; display: flex; flex-direction: column; justify-content: center; position: relative; padding: 48px 0 32px; }
+.textoApresentacao { position: relative; text-align: center; padding: 0 40px; }
+.textoApresentacao h2 { font-size: clamp(26px, 2.65vw, 39px); line-height: 1.18; letter-spacing: -1.5px; font-weight: 550; }
+.textoApresentacao em { font-style: normal; color: #777770; }
+.textoApresentacao > p { max-width: 420px; margin: 19px auto 0; font-size: 14px; line-height: 1.8; color: #6b6b6b; }
+.paginacao { display: flex; justify-content: center; gap: 5px; margin-top: 23px; }
+.paginacao button { min-width: 25px; height: 28px; display: grid; place-items: center; }
+.paginacao span { width: 6px; height: 6px; background: #cdcdc7; border-radius: 99px; transition: width .2s, background .2s; }
+.paginacao button[aria-pressed="true"] span { width: 27px; background: #252525; }
+@media (min-width: 1550px) {
+  .formulario { max-width: 450px; }
+  .textoApresentacao h2 { font-size: 44px; }
+  .textoApresentacao > p { max-width: 480px; font-size: 16px; }
+}
+@media (max-width: 1050px) {
+  .pagina { padding: 14px; grid-template-columns: 49% 51%; }
+  .ladoFormulario { padding: 54px 25px 80px; }
+  .apresentacao { padding-top: 35px; border-radius: 24px; }
+  .textoApresentacao { padding: 0 24px; }
+  .textoApresentacao h2 { font-size: 29px; }
+  .textoApresentacao > p { font-size: 13px; }
+}
+@media (max-width: 760px) {
+  .pagina { display: block; padding: 0; }
+  .ladoFormulario { min-height: 100svh; padding: 50px 28px 95px; }
+  .formulario { max-width: 410px; }
+  .cabecalho h1 { font-size: 33px; }
+  .marca { margin-bottom: 30px; }
+  .rodape { bottom: 27px; left: 20px; right: 20px; gap: 20px; }
+  .apresentacao { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pagina *, .pagina *::after { animation: none !important; transition: none !important; }
+}

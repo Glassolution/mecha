@@ -1,14 +1,11 @@
-"""Rotas abertas, sem login: o que o Início mostra para quem ainda não entrou.
+"""Dados compartilhados do Início. O caminho antigo é mantido, mas exige login."""
 
-Só dados da biblioteca compartilhada (vídeos públicos do TikTok), nada de conta ou espaço.
-"""
+from fastapi import APIRouter, Depends
 
-from fastapi import APIRouter
-
-from radar import db
+from radar import db, sessao
 from radar.biblioteca import SELECT_VIDEO, cartao
 
-r = APIRouter(prefix="/api/publico")
+r = APIRouter(prefix="/api/publico", dependencies=[Depends(sessao.atual)])
 
 _EM_ALTA = "v.views::float / greatest(extract(epoch from now() - v.publicado) / 86400, 1) desc nulls last"
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { api, limparCache, useApi } from "@/lib/api";
 import { supabaseNavegador } from "@/lib/supabase/cliente";
 import { useApp } from "@/components/Contexto";
@@ -14,12 +15,12 @@ type Nicho = { id: string; rotulo: string };
 type Secao = "perfil" | "negocio" | "assuntos" | "plano" | "conta" | "conexoes";
 
 const SECOES: { id: Secao; nome: string; icone: NomeIconeMenu; descricao: string }[] = [
-  { id: "perfil", nome: "Perfil", icone: "perfil", descricao: "Como a Bru te chama e o que você procura." },
-  { id: "negocio", nome: "Meu negócio", icone: "negocio", descricao: "O seu negócio online. Ajuda a Bru a sugerir criativos e ideias perto do que você faz." },
-  { id: "assuntos", nome: "Assuntos", icone: "assuntos", descricao: "Os temas que aparecem primeiro para você e onde a Bru procura." },
+  { id: "perfil", nome: "Perfil", icone: "perfil", descricao: "Como a Wae te chama e o que você procura." },
+  { id: "negocio", nome: "Meu negócio", icone: "negocio", descricao: "O seu negócio online. Ajuda a Wae a sugerir criativos e ideias perto do que você faz." },
+  { id: "assuntos", nome: "Assuntos", icone: "assuntos", descricao: "Os temas que aparecem primeiro para você e onde a Wae procura." },
   { id: "plano", nome: "Plano e uso", icone: "plano", descricao: "O seu plano e quanto você já usou neste mês." },
   { id: "conta", nome: "Conta", icone: "conta", descricao: "E-mail, senha e saída." },
-  { id: "conexoes", nome: "Conexões", icone: "conexoes", descricao: "Ferramentas que se ligam à Bru." },
+  { id: "conexoes", nome: "Conexões", icone: "conexoes", descricao: "Ferramentas que se ligam à Wae." },
 ];
 
 const PERFIS = [
@@ -165,6 +166,12 @@ function PainelConfig({ eu }: { eu: Eu }) {
               <Linha titulo="Seu nome" dica="Aparece no seu perfil e no menu.">
                 <input className="campo" value={form.meuNome} onChange={(e) => muda("meuNome", e.target.value)} placeholder="Seu nome" maxLength={60} aria-label="Seu nome" />
               </Linha>
+              <Linha titulo="Aparência" dica="Escolha a cor da sua Wae e as cores principais do seu espaço.">
+                <Link className="bt2 bt-p" href="/boas-vindas?editar=1&etapa=2&proximo=%2Fconfig">Personalizar cores<Icone nome="direita" tamanho={14}/></Link>
+              </Linha>
+              <Linha titulo="Sua identidade" dica="Seu identificador, descrição, contato e avatar.">
+                <Link className="bt2 bt-p" href="/boas-vindas?editar=1&proximo=%2Fconfig">Editar perfil e avatar<Icone nome="direita" tamanho={14}/></Link>
+              </Linha>
               <Linha titulo="Quem é você">
                 <Escolha opcoes={PERFIS} valor={form.perfil} escolher={(v) => muda("perfil", v)} />
               </Linha>
@@ -201,7 +208,7 @@ function PainelConfig({ eu }: { eu: Eu }) {
 
           {secao === "assuntos" && (
             <>
-              <Linha titulo="Assuntos" dica={form.nichos.length ? `${form.nichos.length} escolhido${form.nichos.length > 1 ? "s" : ""}` : "Nenhum escolhido: a Bru mostra de tudo."}>
+              <Linha titulo="Assuntos" dica={form.nichos.length ? `${form.nichos.length} escolhido${form.nichos.length > 1 ? "s" : ""}` : "Nenhum escolhido: a Wae mostra de tudo."}>
                 <div className="chips">
                   {(nichos ?? []).filter((n) => n.id !== "outro").map((n) => {
                     const on = form.nichos.includes(n.id);
@@ -211,9 +218,6 @@ function PainelConfig({ eu }: { eu: Eu }) {
                     );
                   })}
                 </div>
-              </Linha>
-              <Linha titulo="Ver também lá fora" dica="Ideias em inglês que ainda não têm versão no Brasil.">
-                <Chave ligada={form.verIngles} mudar={() => muda("verIngles", !form.verIngles)} rotulo="Ver também o que bomba lá fora" />
               </Linha>
               <Linha titulo="A busca começa em" dica="O modo que vem marcado no Início.">
                 <Escolha opcoes={[{ id: "achar_ideia", t: "Achar ideia" }, { id: "achar_criativo", t: "Achar criativo" }] as const}
@@ -285,14 +289,6 @@ function Escolha<T extends string>({ opcoes, valor, escolher }: { opcoes: readon
         <button key={o.id} type="button" role="radio" aria-checked={valor === o.id} onClick={() => escolher(o.id)}>{o.t}</button>
       ))}
     </div>
-  );
-}
-
-function Chave({ ligada, mudar, rotulo }: { ligada: boolean; mudar: () => void; rotulo: string }) {
-  return (
-    <button type="button" className="cfg-chave" role="switch" aria-checked={ligada} aria-label={rotulo} onClick={mudar}>
-      <i />
-    </button>
   );
 }
 

@@ -95,7 +95,7 @@ export function AbasPilula<T extends string>({ opcoes, valor, mudar, rotulo }: {
 }
 
 /** Menu suspenso de uma escolha, como o "Vibe" do Framer. */
-export function Suspenso<T extends string>({ rotulo, opcoes, valor, mudar }: { rotulo: string; opcoes: [T, string][]; valor: T; mudar: (v: T) => void }) {
+export function Suspenso<T extends string>({ rotulo, opcoes, valor, mudar, icones }: { rotulo: string; opcoes: [T, string][]; valor: T; mudar: (v: T) => void; icones?: Partial<Record<T, React.ReactNode>> }) {
   const [aberto, setAberto] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -113,14 +113,14 @@ export function Suspenso<T extends string>({ rotulo, opcoes, valor, mudar }: { r
   return (
     <div className="suspenso" ref={ref}>
       <button aria-haspopup="menu" aria-expanded={aberto} onClick={() => setAberto((a) => !a)}>
-        {atual} <Icone nome="baixo" tamanho={15} />
+        {icones?.[valor]} {atual} <Icone nome="baixo" tamanho={15} />
       </button>
       {aberto && (
         <div className="menu" role="menu" aria-label={rotulo}>
-          <div className="janela-grupo" style={{ padding: "6px 12px 4px" }}>{rotulo}</div>
+          <div className="suspenso-titulo">{rotulo}</div>
           {opcoes.map(([v, r]) => (
             <button key={v} className="menu-item" role="menuitemradio" aria-checked={v === valor} onClick={() => { mudar(v); setAberto(false); }}>
-              {r}
+              {icones?.[v]} {r}
             </button>
           ))}
         </div>

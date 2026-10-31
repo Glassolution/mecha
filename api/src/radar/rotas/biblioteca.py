@@ -1,18 +1,26 @@
 """Biblioteca: vídeos (modo Achar criativo), ideias, ficha, busca e capas."""
 
+import asyncio
+import logging
 from typing import Literal
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
+from psycopg.types.json import Jsonb
+from pydantic import BaseModel, Field, field_validator
 
-from radar import db, sessao
+from radar import analise, db, sessao
 from radar.armazenamento import caminho_capa
 from radar.biblioteca import SELECT_VIDEO, cartao, ficha
+from radar.coleta import comentarios
 from radar.exemplos import ideias_exemplo
 from radar.nichos import GRUPOS, NICHOS
 from radar.notas import ATENCAO_VIEWS, PROVA_VIEWS, avalia_ideia
+from radar.config import config
 from radar.planos import itens_completos
 
+log = logging.getLogger(__name__)
 r = APIRouter(prefix="/api")
 
 _ORDEM = {
@@ -75,11 +83,14 @@ async def videos(
     termo: str | None = None,
     nichos: str | None = None,
     so_software: bool = True,
+    so_potencial: bool = False,
     limite: int = 60,
     pagina: int = 0,
 ):
     onde, params = ["true"], []
-    if idioma:
+    if idioma is None and config().so_portugues:  # sem escolha na tela, só português
+        idioma = "pt"
+    if idioma and idioma != "todos":
         onde.append("v.idioma = any(%s)")
         params.append(idioma.split(","))
     if prova != "qualquer":
@@ -93,6 +104,9 @@ async def videos(
         params.append([n for n in nichos.split(",") if n in NICHOS])
     if so_software:
         onde.append("v.sinal_software is not false")
+    if so_potencial:  # só o que passou na triagem de SaaS (página Ideias)
+        onde.append("v.potencial_saas >= %s")
+        params.append(config().nota_minima_saas)
     limite = min(limite, 120)
     linhas = await db.todos(
         SELECT_VIDEO + f" where {' and '.join(onde)} order by {_ORDEM[ordem]} limit %s offset %s",
@@ -115,7 +129,142 @@ async def ver_video(video_id: str, e=Depends(sessao.atual)):
            from video_saas vs join saas s on s.id = vs.saas_id where vs.video_id = %s""",
         (video_id,),
     )
-    return ficha(v)
+    origem = await db.um(
+        """select g.id, g.modo from garimpos g join garimpo_videos gv on gv.garimpo_id = g.id
+           where g.espaco_id = %s and gv.video_id = %s order by g.criado_em desc, g.id desc limit 1""",
+        (e["id"], video_id),
+    )
+    return {**ficha(v), "garimpo_id": origem["id"] if origem else None, "garimpo_modo": origem["modo"] if origem else None}
+
+
+async def _analise_salva(espaco_id, video_id: str) -> dict | None:
+    linha = await db.um(
+        "select resultado, criado_em from analises_video where espaco_id = %s and video_id = %s", (espaco_id, video_id)
+    )
+    return {**linha["resultado"], "criado_em": linha["criado_em"]} if linha else None
+
+
+@r.get("/videos/{video_id}/analise")
+async def ver_analise(video_id: str, e=Depends(sessao.atual)):
+    """A análise já feita para este espaço, ou null (a tela oferece o botão Analisar)."""
+    return await _analise_salva(e["id"], video_id)
+
+
+@r.post("/videos/{video_id}/analise")
+async def fazer_analise(video_id: str, e=Depends(sessao.atual)):
+    """Analisa o vídeo uma vez por espaço; pedir de novo devolve a mesma análise, sem custo."""
+    pronta = await _analise_salva(e["id"], video_id)
+    if pronta:
+        return pronta
+    v = await db.um("select * from videos where id = %s", (video_id,))
+    if not v:
+        raise HTTPException(404, "Vídeo não encontrado.")
+    hoje = await db.um(
+        "select count(*) as n from analises_video where espaco_id = %s and criado_em > now() - interval '1 day'", (e["id"],)
+    )
+    if hoje["n"] >= config().analises_por_dia:
+        raise HTTPException(429, "Você chegou ao limite de análises de hoje. Volte amanhã.")
+    meu = await db.um("select nome, tipo, o_que_faz from meus_saas where espaco_id = %s order by nome limit 1", (e["id"],))
+    try:
+        resultado, gasto = await analise.analisar(v, e, meu)
+    except analise.SemChave:
+        raise HTTPException(409, "A análise ainda não está ligada neste servidor.")
+    except Exception:
+        log.exception("análise do vídeo %s falhou", video_id)
+        raise HTTPException(409, "Não deu para analisar agora. Tente de novo em 1 minuto.")
+    await db.executar(
+        """insert into analises_video (espaco_id, video_id, resultado, modelo, custo_tokens) values (%s, %s, %s, %s, %s)
+           on conflict (espaco_id, video_id) do nothing""",
+        (e["id"], video_id, Jsonb(resultado), config().modelo_analise, gasto),
+    )
+    return await _analise_salva(e["id"], video_id)
+
+
+class PerguntaVideo(BaseModel):
+    pedido_id: UUID
+    texto: str = Field(min_length=1, max_length=4000)
+
+    @field_validator("texto")
+    @classmethod
+    def sem_vazio(cls, texto: str) -> str:
+        if not texto.strip():
+            raise ValueError("Escreva uma pergunta.")
+        return texto.strip()
+
+
+def _mensagens(turnos: list[dict]) -> list[dict]:
+    return [mensagem for turno in turnos for mensagem in (
+        {"id": f"{turno['pedido_id']}:user", "papel": "user", "texto": turno["pergunta"], "criado_em": turno["criado_em"]},
+        {"id": f"{turno['pedido_id']}:assistant", "papel": "assistant", "texto": turno["resposta"], "criado_em": turno["criado_em"]},
+    )]
+
+
+@r.get("/videos/{video_id}/conversa")
+async def ver_conversa(video_id: str, e=Depends(sessao.atual)):
+    turnos = await db.todos(
+        """select pedido_id, pergunta, resposta, criado_em from conversas_video
+           where espaco_id = %s and video_id = %s order by criado_em desc, pedido_id desc limit 100""",
+        (e["id"], video_id),
+    )
+    return _mensagens(list(reversed(turnos)))
+
+
+async def _comentarios(v: dict, buscar: bool) -> list[dict]:
+    """Comentários do vídeo para a conversa. Na primeira análise, busca na Apify os que faltam
+    (reaproveitados por 7 dias); se a busca falhar ou demorar, a análise segue sem eles."""
+    if buscar:
+        try:
+            await asyncio.wait_for(comentarios.garantir([v], config().comentarios_por_video, comentarios.coletores()), 75)
+        except Exception:
+            log.warning("comentários do vídeo %s não vieram; a análise segue sem eles", v["id"], exc_info=True)
+    return await db.todos("select texto, curtidas from comentarios_video where video_id = %s order by curtidas desc nulls last, posicao",
+                          (v["id"],))
+
+
+@r.post("/videos/{video_id}/conversa")
+async def conversar_video(video_id: str, pergunta: PerguntaVideo, e=Depends(sessao.atual)):
+    # Uma resposta por espaço por vez. O lock e o limite diário também valem entre abas/processos.
+    async with db.conexao() as con:
+        async with con.transaction():
+            cur = await con.execute("select pg_try_advisory_xact_lock(hashtextextended(%s, 0)) as ok", (f"chat:{e['id']}",))
+            if not (await cur.fetchone())["ok"]:
+                raise HTTPException(409, "A Wae já está respondendo neste espaço. Aguarde e tente novamente.")
+            cur = await con.execute(
+                "select * from conversas_video where espaco_id = %s and video_id = %s and pedido_id = %s",
+                (e["id"], video_id, pergunta.pedido_id),
+            )
+            salva = await cur.fetchone()
+            if salva:
+                if salva["pergunta"] != pergunta.texto:
+                    raise HTTPException(409, "Este envio já foi usado para outra pergunta. Envie novamente.")
+                return _mensagens([salva])
+            cur = await con.execute("select * from videos where id = %s", (video_id,))
+            v = await cur.fetchone()
+            if not v:
+                raise HTTPException(404, "Vídeo não encontrado.")
+            cur = await con.execute("select count(*) as n from conversas_video where espaco_id = %s and criado_em > now() - interval '1 day'", (e["id"],))
+            if (await cur.fetchone())["n"] >= config().mensagens_chat_por_dia:
+                raise HTTPException(429, "Você chegou ao limite de mensagens de hoje. Volte amanhã.")
+            cur = await con.execute("select nome, tipo, o_que_faz from meus_saas where espaco_id = %s order by nome limit 1", (e["id"],))
+            meu = await cur.fetchone()
+            cur = await con.execute("select pergunta, resposta from conversas_video where espaco_id = %s and video_id = %s order by criado_em desc, pedido_id desc limit 8", (e["id"], video_id))
+            historico = list(reversed(await cur.fetchall()))
+            cur = await con.execute("select resultado from analises_video where espaco_id = %s and video_id = %s", (e["id"], video_id))
+            anterior = await cur.fetchone()
+            v["lista_comentarios"] = await _comentarios(v, buscar=not historico)
+            try:
+                resposta, gasto = await analise.conversar(v, e, meu, historico, pergunta.texto, anterior["resultado"] if anterior else None)
+            except analise.SemChave:
+                raise HTTPException(409, "A IA ainda não está conectada neste servidor.")
+            except Exception:
+                log.exception("conversa do vídeo %s falhou", video_id)
+                raise HTTPException(409, "Não foi possível responder agora. Sua pergunta pode ser enviada novamente.")
+            cur = await con.execute(
+                """insert into conversas_video (espaco_id, video_id, pedido_id, pergunta, resposta, modelo, custo_tokens)
+                   values (%s, %s, %s, %s, %s, %s, %s) returning *""",
+                (e["id"], video_id, pergunta.pedido_id, pergunta.texto, resposta, config().modelo_analise, gasto),
+            )
+            return _mensagens([await cur.fetchone()])
 
 
 @r.get("/ideias")
@@ -179,8 +328,8 @@ async def busca(q: str, e=Depends(sessao.atual)):
 
 
 @r.get("/capas/{nome}")
-async def capa(nome: str):
+async def capa(nome: str, e=Depends(sessao.atual)):
     caminho = caminho_capa(nome)
     if not caminho:
         raise HTTPException(404)
-    return FileResponse(caminho, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=604800"})
+    return FileResponse(caminho, media_type="image/jpeg", headers={"Cache-Control": "private, no-store"})

@@ -1,440 +1,151 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
-import { api, limparCache, useApi } from "@/lib/api";
-import { capaUrl, num } from "@/lib/fmt";
-import type { Eu, Video } from "@/lib/tipos";
+import { api, limparCache } from "@/lib/api";
+import { destinoSeguro } from "@/lib/auth";
+import { AVATARES, CORES_PERFIL, avatarValido, corPerfil, corDaPersonagem, estiloTema, type AvatarId, type CorPerfilId, type CorPersonagemId } from "@/lib/identidade";
+import { TIPOS_NEGOCIO, type TipoNegocio } from "@/lib/perfil";
+import type { Eu } from "@/lib/tipos";
 import { Icone } from "@/components/Icone";
-import { IconeQuiz, type NomeIconeQuiz } from "@/components/IconesQuiz";
 import { Logo } from "@/components/Logo";
-import { MascoteAtor } from "@/components/MascoteAtor";
-import { dominio, LogoSite } from "@/components/LogoSite";
-import { TIPOS_NEGOCIO as TIPOS, type TipoNegocio } from "@/lib/perfil";
+import { Pose } from "@/components/Pose";
+import { IconeBru } from "@/components/IconeBru";
+import { AvatarUsuario } from "@/components/AvatarUsuario";
+import { LogoSite, dominio } from "@/components/LogoSite";
+import styles from "./cadastro.module.css";
 
-type Nicho = { id: string; rotulo: string };
-type Perfil = "founder" | "empresario" | "investidor" | "passeando";
-type Objetivo = "ideias" | "criativos" | "os_dois";
-type Passo = "nome" | "perfil" | "objetivo" | "saas" | "nichos";
-type Opcao<T> = { id: T; icone: NomeIconeQuiz; t: string; d: string; curto: string };
-
-const PERFIS: Opcao<Perfil>[] = [
-  { id: "founder", icone: "founder", t: "Founder", d: "Estou criando ou quero criar um negócio online", curto: "Founder" },
-  { id: "empresario", icone: "empresario", t: "Empresário", d: "Tenho um negócio e quero vender mais", curto: "Empresário" },
-  { id: "investidor", icone: "investidor", t: "Investidor", d: "Procuro tendências e oportunidades", curto: "Investidor" },
-  { id: "passeando", icone: "passeando", t: "Só estou dando uma olhada", d: "Quero ver o que está bombando", curto: "Explorando" },
-];
-const OBJETIVOS: Opcao<Objetivo>[] = [
-  { id: "ideias", icone: "ideias", t: "Ideias de negócio", d: "SaaS, app, loja ou produto digital: o que criar, pelo que está em alta", curto: "Ideias de negócio" },
-  { id: "criativos", icone: "criativos", t: "Criativos", d: "Vídeos que viralizam, para copiar o formato e divulgar", curto: "Criativos" },
-  { id: "os_dois", icone: "os_dois", t: "Os dois", d: "Quero ideias e criativos", curto: "Ideias e criativos" },
-];
-
-function iniciais(nome: string) {
-  const partes = nome.trim().split(/\s+/).filter(Boolean);
-  if (!partes.length) return "";
-  return ((partes[0][0] ?? "") + (partes.length > 1 ? partes[partes.length - 1][0] : "")).toUpperCase();
-}
+type Perfil = NonNullable<Eu["espaco"]["perfil"]>;
+type Objetivo = NonNullable<Eu["espaco"]["objetivo"]>;
+const ETAPAS = ["Você", "Sua Wae", "Seu objetivo", "Seu projeto"];
+const ULTIMA_ETAPA = ETAPAS.length - 1;
+const PERFIS: {id: Perfil; nome: string; icone: string}[] = [{id:"founder",nome:"Founder",icone:"foguete"},{id:"empresario",nome:"Empresário",icone:"maleta"},{id:"investidor",nome:"Investidor",icone:"grafico"},{id:"passeando",nome:"Explorando",icone:"bussola"}];
+const OBJETIVOS: {id: Objetivo; nome: string; descricao: string; icone: string}[] = [{id:"ideias",nome:"Encontrar ideias de negócio",descricao:"Descobrir problemas e oportunidades para construir.",icone:"ideia"},{id:"criativos",nome:"Encontrar criativos",descricao:"Entender formatos e ganchos para divulgar meu negócio.",icone:"claquete"},{id:"os_dois",nome:"Um pouco dos dois",descricao:"Quero explorar ideias e conteúdos que funcionam.",icone:"estudio"}];
+const HANDLE = /^[a-z0-9_]{3,30}$/;
+function sugerirIdentificador(valor: string) { return valor.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9_]/g,"").slice(0,30); }
+function telefoneValido(valor: string) { return !valor.trim() || (/^\+?[\d\s().-]+$/.test(valor.trim()) && valor.replace(/\D/g,"").length >= 8 && valor.replace(/\D/g,"").length <= 15); }
 
 export function Quiz({ eu }: { eu: Eu }) {
   const sp = useSearchParams();
-  const proximo = sp.get("proximo");
-  const destino = proximo && proximo.startsWith("/") && !proximo.startsWith("//") ? proximo : "/inicio";
-  const { dados: nichos } = useApi<Nicho[]>("/api/nichos");
-  const { dados: emAlta } = useApi<{ itens: Video[] }>("/api/publico/em-alta?limite=90");
-
-  const [passo, setPasso] = useState<Passo>("nome");
-  const [direcao, setDirecao] = useState<"frente" | "tras">("frente");
-  // o nome padrão da conta é a primeira parte do e-mail: isso não é um nome, então o campo começa vazio
+  const proximo = destinoSeguro(sp.get("proximo"));
+  const destino = proximo.startsWith("/boas-vindas") ? "/inicio" : proximo;
+  const [boasVindas, setBoasVindas] = useState(sp.get("editar") !== "1");
+  const editando = sp.get("editar") === "1";
+  const [etapa, setEtapa] = useState(editando && sp.get("etapa") === "2" ? 1 : 0);
   const parteEmail = eu.conta.email.split("@")[0];
-  const [nome, setNome] = useState(eu.conta.nome && !eu.conta.nome.includes("@") && eu.conta.nome !== parteEmail ? eu.conta.nome : "");
-  const [digitando, setDigitando] = useState(false);
+  const [nome, setNome] = useState(eu.conta.nome ?? "");
+  const [identificador, setIdentificador] = useState(eu.conta.identificador ?? sugerirIdentificador(parteEmail));
+  const [bio, setBio] = useState(eu.conta.bio ?? "");
+  const [whatsapp, setWhatsapp] = useState(eu.conta.whatsapp ?? "");
+  const [avatar, setAvatar] = useState<AvatarId>(avatarValido(eu.conta.avatar));
+  const [corPersonagem, setCorPersonagem] = useState<CorPersonagemId>(corDaPersonagem(eu.conta.cor_personagem).id);
+  const [cor, setCor] = useState<CorPerfilId>(corPerfil(eu.conta.cor_perfil).id);
   const [perfil, setPerfil] = useState<Perfil | null>(eu.espaco.perfil);
   const [objetivo, setObjetivo] = useState<Objetivo | null>(eu.espaco.objetivo);
-  const [temSaas, setTemSaas] = useState<boolean | null>(eu.meu_saas ? true : null);
-  const [saas, setSaas] = useState({ tipo: eu.meu_saas?.tipo ?? null, nome: eu.meu_saas?.nome ?? "", link: eu.meu_saas?.link ?? "", o_que_faz: eu.meu_saas?.o_que_faz ?? "" });
-  const [escolhidos, setEscolhidos] = useState<string[]>(eu.espaco.nichos);
-  const [verIngles, setVerIngles] = useState(eu.espaco.ver_ingles);
+  const [temProjeto, setTemProjeto] = useState(!!eu.meu_saas);
+  const [projeto, setProjeto] = useState({tipo:eu.meu_saas?.tipo ?? null,nome:eu.meu_saas?.nome ?? "",link:eu.meu_saas?.link ?? "",o_que_faz:eu.meu_saas?.o_que_faz ?? ""});
+  const [disponivel, setDisponivel] = useState<"livre"|"consultando"|"sim"|"nao"|"erro">("livre");
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [comemora, setComemora] = useState(0);
+  const trava = useRef(false);
+  const tituloRef = useRef<HTMLHeadingElement>(null);
+  const handleValido = HANDLE.test(identificador);
+  const corAtual = corPerfil(cor);
 
-  const perguntaSaas = perfil === "founder" || perfil === "empresario";
-  const passos: Passo[] = ["nome", "perfil", "objetivo", ...(perguntaSaas ? (["saas"] as Passo[]) : []), "nichos"];
-  const indice = passos.indexOf(passo);
-
-  function irPara(p: Passo, lista: Passo[] = passos) {
-    setComemora((c) => c + 1);
-    setErro(null);
-    setDirecao(lista.indexOf(p) < lista.indexOf(passo) ? "tras" : "frente");
-    setPasso(p);
-  }
-  function avancar() {
-    if (indice < passos.length - 1) irPara(passos[indice + 1]);
-  }
-  function voltar() {
-    if (indice <= 0) return;
-    setErro(null);
-    setDirecao("tras");
-    setPasso(passos[indice - 1]);
-  }
-
-  function escolherPerfil(p: Perfil) {
-    setPerfil(p);
-    if (p !== "founder" && p !== "empresario") setTemSaas(null);
-    setTimeout(() => irPara("objetivo"), 260);
-  }
-  function escolherObjetivo(o: Objetivo) {
-    setObjetivo(o);
-    setTimeout(() => irPara(perguntaSaas ? "saas" : "nichos"), 260);
-  }
-
-  // atalhos: 1, 2, 3… escolhem a opção nas perguntas de múltipla escolha
   useEffect(() => {
-    if (passo !== "perfil" && passo !== "objetivo") return;
-    const tecla = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const n = Number(e.key);
-      if (!Number.isInteger(n) || n < 1) return;
-      if (passo === "perfil" && PERFIS[n - 1]) escolherPerfil(PERFIS[n - 1].id);
-      if (passo === "objetivo" && OBJETIVOS[n - 1]) escolherObjetivo(OBJETIVOS[n - 1].id);
-    };
-    window.addEventListener("keydown", tecla);
-    return () => window.removeEventListener("keydown", tecla);
-  });
+    if (boasVindas || !handleValido || identificador === eu.conta.identificador) return;
+    let vivo = true;
+    const tempo = setTimeout(() => {
+      setDisponivel("consultando");
+      api<{disponivel:boolean}>(`/api/conta/identificador?valor=${encodeURIComponent(identificador)}`)
+        .then(r => {if (vivo) setDisponivel(r.disponivel ? "sim" : "nao");})
+        .catch(() => {if (vivo) setDisponivel("erro");});
+    },400);
+    return () => {vivo=false;clearTimeout(tempo);};
+  },[identificador, handleValido, boasVindas, eu.conta.identificador]);
 
-  const saasOk = temSaas === false || (temSaas === true && saas.nome.trim().length > 0);
+  useEffect(() => {if (!boasVindas) {tituloRef.current?.focus({preventScroll:true});window.scrollTo({top:0,left:0,behavior:"instant"});}},[etapa,boasVindas]);
 
-  async function concluir() {
-    setSalvando(true);
-    setErro(null);
-    const primeiroNome = nome.trim().split(/\s+/)[0];
-    const nomeEspaco = temSaas && saas.nome.trim() ? saas.nome.trim() : primeiroNome ? `Espaço de ${primeiroNome}` : undefined;
-    try {
-      if (temSaas && saas.nome.trim()) {
-        await api("/api/meu-saas", { method: "PUT", json: { nome: saas.nome, tipo: saas.tipo, link: saas.link || null, o_que_faz: saas.o_que_faz || null } });
-      }
-      await api("/api/espaco", {
-        method: "PATCH",
-        json: {
-          meu_nome: nome.trim() || undefined,
-          nome: nomeEspaco,
-          perfil: perfil ?? undefined,
-          objetivo: objetivo ?? undefined,
-          nichos: escolhidos,
-          idioma: "pt",
-          ver_ingles: verIngles,
-          boas_vindas_ok: true,
-        },
-      });
-      limparCache("/api/eu");
-      location.href = destino;
-    } catch (e) {
-      setErro((e as Error).message);
-      setSalvando(false);
+  function ir(etapaNova: number) { setErro(null);setEtapa(etapaNova); }
+  async function verificarIdentidade(pular = false) {
+    if (!pular && (!nome.trim() || !handleValido)) {setEtapa(0);setErro("Preencha seu nome e um identificador de 3 a 30 letras, números ou sublinhado.");return false;}
+    if (!telefoneValido(whatsapp)) {setEtapa(0);setErro("Confira o WhatsApp. Use o código do país e o DDD, por exemplo: +55 (11) 98765-4321.");return false;}
+    if (handleValido && identificador !== eu.conta.identificador) {
+      try {const r = await api<{disponivel:boolean}>(`/api/conta/identificador?valor=${encodeURIComponent(identificador)}`);if (!r.disponivel) {setDisponivel("nao");setEtapa(0);setErro("Esse identificador já está em uso. Escolha outro.");return false;}}
+      catch (e) {setErro((e as Error).message);return false;}
     }
+    return true;
   }
+  async function avancar(e?: FormEvent) {
+    e?.preventDefault();if (trava.current) return;
+    if (etapa === 0) {trava.current=true;setSalvando(true);const ok = await verificarIdentidade();trava.current=false;setSalvando(false);if (!ok) return;}
+    if (etapa === ULTIMA_ETAPA) {await concluir();return;}
+    ir(etapa+1);
+  }
+  async function concluir(pular = false) {
+    if (trava.current) return;
+    trava.current=true;setSalvando(true);setErro(null);
+    try {
+      if (!await verificarIdentidade(pular)) return;
+      if (!pular && temProjeto && !projeto.nome.trim()) {setEtapa(3);setErro("Dê um nome ao seu projeto para continuar.");return;}
+      await api("/api/conta", {method:"PATCH",json:{nome:nome.trim() || undefined,identificador:handleValido ? identificador : undefined,bio:bio.trim() || null,whatsapp:whatsapp.trim() || null,avatar,cor_perfil:cor,cor_personagem:corPersonagem}});
+      if (temProjeto && projeto.nome.trim()) await api("/api/meu-saas", {method:"PUT",json:{nome:projeto.nome.trim(),tipo:projeto.tipo,link:projeto.link.trim() || null,o_que_faz:projeto.o_que_faz.trim() || null}});
+      const primeiro = nome.trim().split(/\s+/)[0];
+      await api("/api/espaco", {method:"PATCH",json:{nome:temProjeto && projeto.nome.trim() ? projeto.nome.trim() : primeiro ? `Espaço de ${primeiro}` : undefined,perfil:perfil ?? undefined,objetivo:objetivo ?? undefined,boas_vindas_ok:true}});
+      limparCache("/api/eu");location.assign(destino);
+    } catch (e) {setErro((e as Error).message);}
+    finally {trava.current=false;setSalvando(false);}
+  }
+  async function salvarAparencia() {
+    if (trava.current) return;
+    trava.current=true;setSalvando(true);setErro(null);
+    try {
+      await api("/api/conta", {method:"PATCH",json:{avatar,cor_perfil:cor,cor_personagem:corPersonagem}});
+      limparCache("/api/eu");location.assign(destino);
+    } catch (e) {setErro((e as Error).message);}
+    finally {trava.current=false;setSalvando(false);}
+  }
+  const avancarDesabilitado = salvando || (etapa === 0 && (!nome.trim() || !handleValido || disponivel === "nao" || !telefoneValido(whatsapp))) || (etapa === 2 && !objetivo) || (etapa === 3 && temProjeto && !projeto.nome.trim());
+  const atual = ETAPAS[etapa];
 
-  const alternarNicho = (id: string) => setEscolhidos((x) => (x.includes(id) ? x.filter((y) => y !== id) : [...x, id]));
-  const listaNichos = (nichos ?? []).filter((n) => n.id !== "outro");
-  const primeiro = nome.trim().split(/\s+/)[0];
-  const campo = { onFocus: () => setDigitando(true), onBlur: () => setDigitando(false) };
-
-  return (
-    <main className="quiz-pagina">
-      <div className="quiz-lado">
-        <header className="quiz-topo">
-          <Logo tamanho={18} />
-        </header>
-
-        <div className="quiz-esq">
-          <div className="quiz-ator"><MascoteAtor tamanho={56} comemora={comemora} modo={digitando ? "lendo" : "normal"} /></div>
-
-          <section className={`quiz-passo quiz-${direcao}`} key={passo}>
-            {passo === "nome" && (
-              <form onSubmit={(e) => { e.preventDefault(); avancar(); }}>
-                <p className="quiz-rotulo">Boas-vindas à Bru</p>
-                <h1>Oi! Como podemos te chamar?</h1>
-                <p className="suave">Leva 30 segundos. Assim a Bru mostra o que faz sentido para você.</p>
-                <div className="quiz-campo-icone">
-                  <Icone nome="usuario" tamanho={18} />
-                  <input className="campo campo-g" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Seu nome" maxLength={60} autoFocus {...campo}
-                    aria-label="Seu nome" autoComplete="given-name" />
-                </div>
-                <div className="quiz-acoes">
-                  <button type="button" className="bt3" onClick={() => avancar()}>Pular</button>
-                  <button className="bt1 bt-g" disabled={!nome.trim()}>Continuar <Icone nome="direita" tamanho={16} /></button>
-                </div>
-              </form>
-            )}
-
-            {passo === "perfil" && (
-              <>
-                <p className="quiz-rotulo">Sobre você</p>
-                <h1>{primeiro ? `Prazer, ${primeiro}!` : "Prazer!"} Quem é você?</h1>
-                <Opcoes opcoes={PERFIS} valor={perfil} escolher={escolherPerfil} />
-              </>
-            )}
-
-            {passo === "objetivo" && (
-              <>
-                <p className="quiz-rotulo">Seu objetivo</p>
-                <h1>O que você procura?</h1>
-                <Opcoes opcoes={OBJETIVOS} valor={objetivo} escolher={escolherObjetivo} />
-              </>
-            )}
-
-            {passo === "saas" && (
-              <form onSubmit={(e) => { e.preventDefault(); if (saasOk) avancar(); }}>
-                <p className="quiz-rotulo">Seu negócio</p>
-                <h1>Você já tem um negócio online?</h1>
-                <div className="quiz-opcoes quiz-opcoes-lado">
-                  <button type="button" className="quiz-opcao" aria-pressed={temSaas === true} onClick={() => setTemSaas(true)} style={{ "--i": 0 } as React.CSSProperties}>
-                    <span className="quiz-icone" aria-hidden="true"><IconeQuiz nome="saas_sim" /></span>
-                    <span><b>Sim, tenho</b><span>Conte um pouco dele</span></span>
-                    <Marcador ativo={temSaas === true} />
-                  </button>
-                  <button type="button" className="quiz-opcao" aria-pressed={temSaas === false} style={{ "--i": 1 } as React.CSSProperties}
-                    onClick={() => { setTemSaas(false); setTimeout(() => irPara("nichos"), 260); }}>
-                    <span className="quiz-icone" aria-hidden="true"><IconeQuiz nome="saas_nao" /></span>
-                    <span><b>Ainda não</b><span>Estou procurando a ideia</span></span>
-                    <Marcador ativo={temSaas === false} />
-                  </button>
-                </div>
-                {temSaas && (
-                  <div className="quiz-campos">
-                    <div className="chips quiz-tipos" role="group" aria-label="Tipo de negócio">
-                      {TIPOS.map((t, i) => (
-                        <button key={t.id} type="button" className="chip" aria-pressed={saas.tipo === t.id} style={{ "--i": i } as React.CSSProperties}
-                          onClick={() => setSaas({ ...saas, tipo: saas.tipo === t.id ? null : t.id })}>
-                          {saas.tipo === t.id && <Icone nome="check" tamanho={13} traco={2.4} />}
-                          {t.t}
-                        </button>
-                      ))}
-                    </div>
-                    <input className="campo campo-g" value={saas.nome} onChange={(e) => setSaas({ ...saas, nome: e.target.value })} placeholder="Nome do seu negócio" maxLength={80} autoFocus {...campo} aria-label="Nome do seu negócio" />
-                    <input className="campo campo-g" value={saas.link} onChange={(e) => setSaas({ ...saas, link: e.target.value })} placeholder="Site, loja ou link (opcional)" maxLength={300} {...campo} inputMode="url" aria-label="Site, loja ou link do seu negócio" />
-                    <input className="campo campo-g" value={saas.o_que_faz} onChange={(e) => setSaas({ ...saas, o_que_faz: e.target.value })} placeholder="O que ele faz, em uma frase (opcional)" maxLength={300} {...campo} aria-label="O que o seu negócio faz" />
-                  </div>
-                )}
-                <div className="quiz-acoes">
-                  <button type="button" className="bt3" onClick={voltar}><Icone nome="voltar" tamanho={15} /> Voltar</button>
-                  <button className="bt1 bt-g" disabled={!saasOk}>Continuar <Icone nome="direita" tamanho={16} /></button>
-                </div>
-              </form>
-            )}
-
-            {passo === "nichos" && (
-              <>
-                <p className="quiz-rotulo">Seus assuntos</p>
-                <h1>Quais assuntos te interessam?</h1>
-                <p className="suave">Escolha quantos quiser. Dá para mudar depois.</p>
-                <div className="chips quiz-chips">
-                  {listaNichos.map((n, i) => (
-                    <button key={n.id} className="chip" aria-pressed={escolhidos.includes(n.id)} onClick={() => alternarNicho(n.id)} style={{ "--i": i } as React.CSSProperties}>
-                      {escolhidos.includes(n.id) && <Icone nome="check" tamanho={13} traco={2.4} />}
-                      {n.rotulo}
-                    </button>
-                  ))}
-                </div>
-                <button className="quiz-opcao quiz-toggle" aria-pressed={verIngles} onClick={() => setVerIngles((v) => !v)}>
-                  <span className="quiz-icone" aria-hidden="true"><IconeQuiz nome="globo" /></span>
-                  <span><b>Ver também o que bomba lá fora</b><span>Ideias em inglês que ainda não têm versão no Brasil</span></span>
-                  <span className="quiz-chave" aria-hidden="true"><i /></span>
-                </button>
-                <div className="quiz-acoes">
-                  <button type="button" className="bt3" onClick={voltar}><Icone nome="voltar" tamanho={15} /> Voltar</button>
-                  <button className="bt1 bt-g" onClick={concluir} disabled={salvando}>
-                    {salvando ? <><span className="girando" aria-hidden="true" /> Preparando…</> : <>Começar a usar <Icone nome="direita" tamanho={16} /></>}
-                  </button>
-                </div>
-              </>
-            )}
-          </section>
-
-          {(passo === "perfil" || passo === "objetivo") && (
-            <div className="quiz-rodape">
-              <button className="link-sutil" onClick={voltar}><Icone nome="voltar" tamanho={14} /> Voltar</button>
-              <span className="quiz-dica">Dica: aperte <kbd>1</kbd>–<kbd>{passo === "perfil" ? PERFIS.length : OBJETIVOS.length}</kbd> para escolher</span>
+  return <main className={styles.pagina} style={{...estiloTema(cor,corPersonagem),"--cor-cartao":corAtual.cor} as CSSProperties}>
+    <header className={styles.topo}><Link href="/inicio" className={boasVindas ? styles.marcaOculta : styles.marca} aria-label="Wae, início"><Logo tamanho={22} triangulo/></Link><span className={styles.etapaAtual}>{boasVindas ? "Você" : atual} · {etapa+1} de {ETAPAS.length}</span>{!boasVindas && <button className={styles.pular} onClick={() => concluir(true)} disabled={salvando}>{salvando ? "Aguarde…" : "Pular o resto"}</button>}</header>
+    {boasVindas ? <section className={styles.boasVindas}><Pose nome="acenando" cor={corPersonagem} largura={185} className={styles.mascote}/><h1 className={styles.saudacao}>Oi, {nome.trim() || parteEmail}</h1><p>Vamos montar seu perfil na Wae? Leva um minuto<br/>e deixa tudo com a sua cara.</p><button className={styles.comecar} onClick={() => setBoasVindas(false)}><Icone nome="direita" tamanho={20}/>Começar</button></section> : <div className={styles.moldura}>
+      <section className={styles.formulario} aria-label={`Etapa ${etapa+1}: ${atual}`}>
+        <div className={styles.conteudo} key={etapa}>
+          {etapa === 0 && <form id="cadastro-form" onSubmit={avancar}>
+            <h1 ref={tituloRef} tabIndex={-1}>Primeiro, quem é você?</h1><p className={styles.descricao}>É assim que a Wae vai te conhecer. Dá para mudar depois, no seu perfil.</p>
+            <div className={styles.campos}>
+              <label className={styles.campo}><span>Seu nome</span><input value={nome} onChange={e => setNome(e.target.value)} autoComplete="name" placeholder="Como podemos te chamar?" maxLength={60} required/></label>
+              <label className={styles.campo}><span>Seu @<small>seu identificador na Wae</small></span><span className={styles.inputComIcone}><b aria-hidden="true">@</b><input value={identificador} onChange={e => {setIdentificador(e.target.value.toLowerCase().replace(/^@/,""));setDisponivel("livre");}} autoComplete="username" autoCapitalize="none" spellCheck={false} maxLength={30} pattern="[a-z0-9_]{3,30}" placeholder="seunome" required aria-invalid={disponivel === "nao"}/>{handleValido && <i className={disponivel === "nao" ? styles.handleOcupado : styles.handleStatus}>{disponivel === "consultando" ? <span className={styles.spinner}/> : disponivel === "sim" || identificador === eu.conta.identificador ? <Icone nome="check" tamanho={16}/> : disponivel === "nao" ? <Icone nome="x" tamanho={16}/> : null}</i>}</span>{disponivel === "nao" && <small className={styles.erroCampo}>Esse identificador já está em uso.</small>}{identificador && !handleValido && <small className={styles.dicaCampo}>Use de 3 a 30 letras minúsculas, números ou sublinhado.</small>}</label>
+              <label className={styles.campo}><span>O que você está construindo?<small>{bio.length}/80</small></span><input value={bio} onChange={e => setBio(e.target.value)} placeholder="Uma ferramenta que transforma ideias em negócios" maxLength={80}/></label>
+              <label className={styles.campo}><span>Seu WhatsApp<small>opcional · não aparece no cartão</small></span><span className={styles.inputComIcone}><Icone nome="fala" tamanho={17}/><input value={whatsapp} onChange={e => setWhatsapp(e.target.value)} type="tel" autoComplete="tel" placeholder="+55 (11) 98765-4321" maxLength={30}/></span></label>
             </div>
-          )}
-          {erro && <p className="erro-caixa" role="alert">{erro}</p>}
+          </form>}
+          {etapa === 1 && <><h1 ref={tituloRef} tabIndex={-1}>Escolhe quem te representa</h1><p className={styles.descricao}>Uma Wae para chamar de sua. Escolha quem combina com você e a cor do seu espaço.</p><div className={styles.avatares} role="group" aria-label="Escolha seu avatar">{AVATARES.map(a => <button key={a.id} className={styles.avatarOpcao} aria-pressed={avatar === a.id && corPersonagem === a.cor} aria-label={`Wae ${a.nome}, ${corDaPersonagem(a.cor).nome}`} onClick={() => {setAvatar(a.id);setCorPersonagem(a.cor);}}><Pose nome={a.id} cor={a.cor} largura={145}/>{avatar === a.id && corPersonagem === a.cor && <span><Icone nome="check" tamanho={12}/></span>}</button>)}</div><PaletaPrincipal valor={cor} onChange={setCor}/></>}
+          {etapa === 2 && <><h1 ref={tituloRef} tabIndex={-1}>O que te traz até a Wae?</h1><p className={styles.descricao}>Conte um pouco do seu momento. Assim, as próximas ideias fazem mais sentido para você.</p><span className={styles.rotulo}>Você se identifica como</span><div className={styles.perfis} role="group" aria-label="Seu perfil">{PERFIS.map(p => <button key={p.id} aria-pressed={perfil === p.id} onClick={() => setPerfil(p.id)}><Icone nome={p.icone} tamanho={18}/>{p.nome}</button>)}</div><span className={styles.rotulo}>O que você quer encontrar?</span><div className={styles.objetivos} role="group" aria-label="Seu objetivo">{OBJETIVOS.map(o => <button key={o.id} aria-pressed={objetivo === o.id} onClick={() => setObjetivo(o.id)}><Icone nome={o.icone} tamanho={21}/><span><b>{o.nome}</b><small>{o.descricao}</small></span><i>{objetivo === o.id && <Icone nome="check" tamanho={12}/>}</i></button>)}</div></>}
+          {etapa === 3 && <><h1 ref={tituloRef} tabIndex={-1}>O que você está construindo?</h1><p className={styles.descricao}>Seu projeto ajuda a Wae a encontrar referências mais próximas do que você faz.</p><div className={styles.projetoEscolha} role="group" aria-label="Você já tem um projeto?"><button aria-pressed={temProjeto} onClick={() => setTemProjeto(true)}><Icone nome="foguete" tamanho={18}/>Já tenho um projeto</button><button aria-pressed={!temProjeto} onClick={() => setTemProjeto(false)}><Icone nome="ideia" tamanho={18}/>Estou buscando uma ideia</button></div>{temProjeto ? <div className={styles.campos}><label className={styles.campo}><span>Nome do projeto</span><input value={projeto.nome} onChange={e => setProjeto({...projeto,nome:e.target.value})} placeholder="O nome da sua próxima grande ideia" maxLength={80}/></label><label className={styles.campo}><span>Site ou link<small>opcional</small></span><input value={projeto.link} onChange={e => setProjeto({...projeto,link:e.target.value})} placeholder="seuprojeto.com.br" maxLength={300} inputMode="url"/></label><div><span className={styles.rotulo}>Tipo de projeto</span><div className={styles.chips} role="group" aria-label="Tipo de projeto">{TIPOS_NEGOCIO.map(t => <button key={t.id} aria-pressed={projeto.tipo === t.id} onClick={() => setProjeto({...projeto,tipo:projeto.tipo === t.id ? null : t.id as TipoNegocio})}>{t.t}</button>)}</div></div><label className={styles.campo}><span>O que ele faz?</span><input value={projeto.o_que_faz} onChange={e => setProjeto({...projeto,o_que_faz:e.target.value})} placeholder="Em uma frase, que problema ele resolve?" maxLength={300}/></label></div> : <div className={styles.semProjeto}><Pose nome="pensando" largura={95}/><h2>O próximo começo pode estar aqui.</h2><p>Vamos procurar ideias e referências com você.</p></div>}</>}
         </div>
-      </div>
-
-      <Previa
-        passo={passo}
-        nome={nome}
-        email={eu.conta.email}
-        perfil={perfil}
-        objetivo={objetivo}
-        mostraSaas={perguntaSaas}
-        temSaas={temSaas}
-        saas={saas}
-        escolhidos={escolhidos}
-        nichos={listaNichos}
-        verIngles={verIngles}
-        videos={emAlta?.itens ?? []}
-      />
-    </main>
-  );
+        {erro && <p className={styles.erro} role="alert">{erro}</p>}
+        <footer className={styles.rodape}><nav className={styles.progresso} aria-label="Etapas do cadastro">{ETAPAS.map((t,i) => <button key={t} disabled={salvando} aria-label={`Etapa ${i+1}: ${t}`} aria-current={etapa === i ? "step" : undefined} data-feita={i < etapa || undefined} onClick={() => ir(i)}/>)}</nav><div className={styles.navegacao}>{etapa > 0 && <button className={styles.voltar} aria-label="Voltar uma etapa" disabled={salvando} onClick={() => ir(etapa-1)}><Icone nome="voltar" tamanho={19}/></button>}<button className={styles.continuar} form={etapa === 0 ? "cadastro-form" : undefined} type={etapa === 0 ? "submit" : "button"} disabled={avancarDesabilitado} onClick={etapa === 0 ? undefined : () => editando && etapa === 1 ? salvarAparencia() : avancar()}>{salvando ? <><span className={styles.spinner}/>Aguarde…</> : editando && etapa === 1 ? "Salvar aparência" : etapa === ULTIMA_ETAPA ? "Entrar na Wae" : "Continuar"}</button></div></footer>
+      </section>
+      <aside className={styles.previa} aria-label="Prévia do seu cartão de perfil"><CartaoPerfil eu={eu} nome={nome} identificador={identificador} bio={bio} avatar={avatar} cor={cor} corPersonagem={corPersonagem} projeto={temProjeto ? projeto : null} objetivo={objetivo}/><p className={styles.legendaPrevia}>seu perfil na Wae, montado enquanto você escreve</p></aside>
+    </div>}
+  </main>;
 }
 
-function Marcador({ ativo, tecla }: { ativo: boolean; tecla?: number }) {
-  return (
-    <span className={`quiz-marcador${ativo ? " ativo" : ""}`} aria-hidden="true">
-      {ativo ? <Icone nome="check" tamanho={14} traco={2.6} /> : tecla ? <kbd>{tecla}</kbd> : null}
-    </span>
-  );
+function CartaoPerfil({eu,nome,identificador,bio,avatar,cor,corPersonagem,projeto,objetivo}:{eu:Eu;nome:string;identificador:string;bio:string;avatar:AvatarId;cor:CorPerfilId;corPersonagem:CorPersonagemId;projeto:{nome:string;link:string;o_que_faz:string}|null;objetivo:Objetivo|null}) {
+  const data = eu.conta.criado_em ? new Intl.DateTimeFormat("pt-BR",{day:"numeric",month:"short",timeZone:"America/Belem"}).format(new Date(eu.conta.criado_em)).replaceAll(".","") : null;
+  return <article className={styles.cartao}>
+    <header className={styles.cartaoTopo}><div><IconeBru tamanho={28}/><b>Wae</b></div><span>SEU PERFIL<small>{data ? `desde ${data}` : "feito para você"}</small></span></header>
+    <div className={styles.cartaoPessoa}><span className={styles.avatarCartao}><AvatarUsuario avatar={avatar} cor={cor} corPersonagem={corPersonagem} tamanho={65}/></span><div><h2>{nome.trim() || "Seu nome"}</h2><span>@{identificador || "seunome"}</span></div></div>
+    <p className={`${styles.cartaoBio} ${!bio.trim() ? styles.placeholder : ""}`}>{bio.trim() || "O que você está construindo, numa linha."}</p>
+    <div className={`${styles.cartaoProjeto} ${projeto?.nome.trim() ? styles.projetoPreenchido : ""}`}>{projeto?.nome.trim() ? <><LogoSite site={dominio(projeto.link)} letra={projeto.nome.trim()[0].toUpperCase()}/><b>{projeto.nome}</b><span>{projeto.o_que_faz || dominio(projeto.link) || "Uma ideia ganhando forma."}</span></> : <span>seu projeto aparece aqui</span>}</div>
+    <footer className={styles.cartaoRodape}><div><small>SEU PRÓXIMO GRANDE COMEÇO</small><span>{objetivo === "criativos" ? "Conteúdo que abre possibilidades" : objetivo === "os_dois" ? "Ideias e conteúdo, lado a lado" : "Ideias que viram projetos"}</span></div><span className={styles.pontosCartao} aria-hidden="true">{Array.from({length:15},(_,i) => <i key={i}/>)}</span></footer>
+  </article>;
 }
 
-function Opcoes<T extends string>({ opcoes, valor, escolher }: { opcoes: Opcao<T>[]; valor: T | null; escolher: (v: T) => void }) {
-  return (
-    <div className="quiz-opcoes">
-      {opcoes.map((o, i) => (
-        <button key={o.id} className="quiz-opcao" aria-pressed={valor === o.id} onClick={() => escolher(o.id)} style={{ "--i": i } as React.CSSProperties}>
-          <span className="quiz-icone" aria-hidden="true"><IconeQuiz nome={o.icone} /></span>
-          <span><b>{o.t}</b><span>{o.d}</span></span>
-          <Marcador ativo={valor === o.id} tecla={i + 1} />
-        </button>
-      ))}
-    </div>
-  );
-}
-
-const FRASE_PERFIL: Record<Perfil, string> = {
-  founder: "Founder construindo um negócio online",
-  empresario: "Empresário de olho em vender mais",
-  investidor: "Investidor atrás de tendências",
-  passeando: "Explorando o que está em alta",
-};
-const ACAO_OBJETIVO: Record<Objetivo, string> = { ideias: "Ver ideias", criativos: "Ver criativos", os_dois: "Ver tudo" };
-
-/** Texto que troca deslizando de baixo para cima quando `k` muda. */
-function Troca({ k, children, className = "" }: { k: string; children: React.ReactNode; className?: string }) {
-  return (
-    <span className={`troca ${className}`}>
-      <span key={k} className="troca-in">{children}</span>
-    </span>
-  );
-}
-
-/** O perfil ao vivo, na metade direita, direto no fundo: se monta conforme a pessoa responde. */
-function Previa(p: {
-  passo: Passo;
-  nome: string;
-  email: string;
-  perfil: Perfil | null;
-  objetivo: Objetivo | null;
-  mostraSaas: boolean;
-  temSaas: boolean | null;
-  saas: { tipo: TipoNegocio | null; nome: string; link: string; o_que_faz: string };
-  escolhidos: string[];
-  nichos: Nicho[];
-  verIngles: boolean;
-  videos: Video[];
-}) {
-  const perfil = PERFIS.find((x) => x.id === p.perfil);
-  const objetivo = OBJETIVOS.find((x) => x.id === p.objetivo);
-  const rotulos = p.escolhidos.map((id) => p.nichos.find((n) => n.id === id)).filter((n): n is Nicho => !!n);
-  const nome = p.nome.trim();
-  const ini = iniciais(nome);
-
-
-  // capas dos vídeos em alta dos assuntos escolhidos (ou os mais em alta, se ainda não escolheu)
-  const comCapa = p.videos.filter((v) => v.capa);
-  const doNicho = p.escolhidos.length ? comCapa.filter((v) => v.nichos.some((n) => p.escolhidos.includes(n))) : [];
-  const amostra = (doNicho.length >= 4 ? doNicho : [...doNicho, ...comCapa.filter((v) => !doNicho.includes(v))]).slice(0, 4);
-
-  const ativo = (k: Passo) => (p.passo === k ? " ativo" : "");
-  const site = dominio(p.saas.link);
-  const tipoRotulo = p.temSaas ? TIPOS.find((t) => t.id === p.saas.tipo)?.t : undefined;
-
-  return (
-    <aside className="quiz-previa" aria-label="Prévia do seu perfil">
-      <div className="previa-coluna">
-        <article className="perfil">
-          {/* capa ainda sem foto: um espaço esperando a pessoa personalizar */}
-          <div className="perfil-capa" aria-hidden="true">
-            <i className="perfil-luz" />
-            <i className="perfil-luz b" />
-            <span className="perfil-capa-dica"><b>+</b> Adicionar capa</span>
-          </div>
-
-          <div className={`perfil-avatar${ini ? " tem" : ""}${ativo("nome")}`}>
-            {ini ? <Troca k={ini}>{ini}</Troca> : (
-              <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="25" r="11" /><path d="M10 64c2-14 11-22 22-22s20 8 22 22z" /></svg>
-            )}
-          </div>
-
-          <div className="perfil-topo">
-            <div className="perfil-quem">
-              <strong className={`${nome ? "" : "sem"}${ativo("nome")}`}>
-                {nome || "Seu nome"}
-                {p.passo === "nome" && <i className="perfil-cursor" aria-hidden="true" />}
-              </strong>
-              <span>{perfil ? <Troca k={perfil.id}>{FRASE_PERFIL[perfil.id]}</Troca> : p.email}</span>
-            </div>
-            <span className={`perfil-pilula${ativo("nichos")}`}>
-              {rotulos.length > 0 && (
-                <span className="perfil-bolinhas" aria-hidden="true">
-                  {rotulos.slice(0, 3).map((n) => <i key={n.id}>{n.rotulo[0]}</i>)}
-                </span>
-              )}
-              <Troca k={String(rotulos.length)}>{rotulos.length === 0 ? "Assuntos" : rotulos.length === 1 ? rotulos[0].rotulo : `${rotulos.length} assuntos`}</Troca>
-            </span>
-          </div>
-
-          <div className="perfil-rodape">
-            <dl className="perfil-numeros">
-              <div className={ativo("perfil")}>
-                <dd>{perfil ? <Troca k={perfil.id}>{perfil.curto}</Troca> : "—"}</dd>
-                <dt>perfil</dt>
-              </div>
-              <div className={ativo("objetivo")}>
-                <dd>{objetivo ? <Troca k={objetivo.id}>{objetivo.id === "os_dois" ? "Os dois" : objetivo.id === "ideias" ? "Ideias" : "Criativos"}</Troca> : "—"}</dd>
-                <dt>procura</dt>
-              </div>
-              <div className={p.passo === "nichos" ? " ativo" : ""}>
-                <dd><Troca k={String(p.verIngles)}>{p.verIngles ? "BR + fora" : "Brasil"}</Troca></dd>
-                <dt>alcance</dt>
-              </div>
-            </dl>
-            <span className={`perfil-botao${objetivo ? " pronto" : ""}`} aria-hidden="true">
-              <Troca k={objetivo?.id ?? "x"}>{objetivo ? ACAO_OBJETIVO[objetivo.id] : "Começar"}</Troca>
-            </span>
-          </div>
-
-          {p.mostraSaas && (
-            <div className={`perfil-produto${ativo("saas")}`}>
-              <LogoSite site={p.temSaas ? site : ""} letra={p.temSaas && p.saas.nome.trim() ? p.saas.nome.trim()[0].toUpperCase() : "·"} />
-              <div>
-                <b>
-                  {p.temSaas === false ? "Procurando a próxima ideia" : p.temSaas && p.saas.nome.trim() ? p.saas.nome.trim() : <span className="sem">Seu negócio</span>}
-                  {(site || tipoRotulo) && <span className="perfil-site">{[tipoRotulo, site].filter(Boolean).join(" · ")}</span>}
-                </b>
-                <span>{p.temSaas === false ? "A Bru vai sugerir o que criar" : p.saas.o_que_faz.trim() || "O que ele faz aparece aqui"}</span>
-              </div>
-            </div>
-          )}
-        </article>
-
-        <div className="previa-feed">
-          <span className="previa-feed-titulo">
-            Em alta para você
-            <Troca k={rotulos.length ? "s" : "g"} className="previa-feed-fonte">{rotulos.length ? "pelos seus assuntos" : "no geral"}</Troca>
-          </span>
-          <div className="previa-capas">
-            {(amostra.length ? amostra : [null, null, null, null]).map((v, i) => v ? (
-              <figure key={v.id} className="previa-capa" style={{ "--i": i } as React.CSSProperties}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={capaUrl(v.capa)!} alt="" loading="lazy" />
-                {v.views != null && <figcaption>{num(v.views)}</figcaption>}
-              </figure>
-            ) : <span key={i} className="previa-capa previa-capa-vazia" />)}
-          </div>
-        </div>
-      </div>
-    </aside>
-  );
+function PaletaPrincipal({valor,onChange}:{valor:CorPerfilId;onChange:(cor:CorPerfilId)=>void}) {
+  return <fieldset className={styles.paleta}><legend className="oculto">Cor principal</legend><div className={styles.cores}>{CORES_PERFIL.map(c => <button key={c.id} type="button" aria-label={`Cor principal: ${c.nome}`} title={c.nome} aria-pressed={valor === c.id} style={{background:c.cor,color:c.cor}} onClick={() => onChange(c.id)}/>)}</div></fieldset>;
 }

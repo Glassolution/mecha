@@ -94,6 +94,8 @@ def cartao(v: dict, bloqueado: bool = False) -> dict:
         "views_dia": _views_dia(v),
         "nichos": v.get("nichos") or [],
         "nota": (v.get("avaliacao") or {}).get("nota"),
+        "potencial": v.get("potencial_saas"),
+        "potencial_motivo": v.get("potencial_motivo"),
     }
 
 

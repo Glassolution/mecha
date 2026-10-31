@@ -8,8 +8,10 @@ os.environ["REDIS_URL"] = "redis://localhost:6379/1"
 os.environ["AMBIENTE"] = "teste"
 os.environ["PASTA_DADOS"] = tempfile.mkdtemp(prefix="radar-teste-")
 os.environ["APIFY_TOKEN"] = ""  # os testes nunca chamam o provedor de verdade
+os.environ["GEMINI_API_KEY"] = ""  # nem o Gemini (cada teste simula o que precisa)
 os.environ["SUPABASE_URL"] = "https://teste.supabase.co"  # tokens assinados por uma chave de teste
 os.environ["DONOS"] = "dono@teste.com"
+os.environ["SO_PORTUGUES"] = "false"  # os testes cobrem português e inglês; o modo só Brasil tem teste próprio
 
 import httpx  # noqa: E402
 import pytest  # noqa: E402
@@ -32,7 +34,8 @@ async def banco():
 async def limpo():
     await db.executar(
         """truncate videos, metricas_hist, busca_cache, contas, sessoes, espacos, membros, garimpos,
-           garimpo_videos, colecoes, salvos, uso, avaliacoes, video_saas, saas cascade"""
+           garimpo_videos, colecoes, salvos, uso, avaliacoes, video_saas, saas, analises_video, conversas_video,
+           comentarios_video, oportunidades_garimpo cascade"""
     )
     await fluxo.redis().flushdb()
     yield

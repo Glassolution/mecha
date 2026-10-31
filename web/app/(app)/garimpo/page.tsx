@@ -34,7 +34,6 @@ export default function MontarGarimpo() {
   const [texto, setTexto] = useState("");
   const [nicho, setNicho] = useState<string>("");
   const [pagina, setPagina] = useState(0);
-  const [idiomas, setIdiomas] = useState<string[]>(["pt", "en"]);
   const [modo, setModo] = useState<"ideia" | "criativo">("ideia");
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<{ mensagem: string; botao?: string } | null>(null);
@@ -58,10 +57,6 @@ export default function MontarGarimpo() {
     }
   }
 
-  function trocarIdioma(i: number) {
-    setEtiquetas((es) => es.map((e, j) => (j === i ? { ...e, idioma: e.idioma === "pt" ? "en" : e.idioma === "en" ? null : "pt" } : e)));
-  }
-
   function escolherPorMim() {
     const livres = (ideias ?? []).filter((p) => !etiquetas.some((e) => e.termo === p.termo));
     livres.sort(() => Math.random() - 0.5).slice(0, 3).forEach((p) => adicionar(p.termo, p.idioma));
@@ -75,11 +70,10 @@ export default function MontarGarimpo() {
     if (restantes === 1 && !confirm("Este é o seu último garimpo do mês. Quer usar agora?")) return;
     setEnviando(true);
     setErro(null);
-    const termos_idioma: Record<string, string> = {};
-    for (const e of etiquetas) if (e.idioma) termos_idioma[e.termo] = e.idioma;
     try {
-      const id = await iniciarGarimpo({ termos: termosFinais, termos_idioma, fontes: escolhidas, idiomas, modo });
-      router.push(`/garimpo/${id}`);
+      // por enquanto tudo é buscado no Brasil, em português
+      const id = await iniciarGarimpo({ termos: termosFinais, fontes: escolhidas, idiomas: ["pt"], modo });
+      router.push(`/garimpo/${id}?nova=1`);
     } catch (e) {
       const err = e as ErroApi;
       setErro({ mensagem: err.message, botao: err.dados?.botao });
@@ -92,7 +86,7 @@ export default function MontarGarimpo() {
   return (
     <>
       <h1 className="titulo-pagina">Garimpo</h1>
-      <p className="sub-pagina">Escolha palavras. A Bru busca cada uma no TikTok e no Instagram e mostra os vídeos chegando ao vivo.</p>
+      <p className="sub-pagina">Escolha palavras. A Wae busca cada uma no TikTok e no Instagram e mostra os vídeos chegando ao vivo.</p>
 
       <div className="montar" style={{ marginTop: 28 }}>
         <section className="painel">
@@ -101,16 +95,6 @@ export default function MontarGarimpo() {
             {etiquetas.map((e, i) => (
               <span key={e.termo} className="etiqueta">
                 {e.termo}
-                <button
-                  type="button"
-                  className="idioma"
-                  style={{ width: "auto", padding: "0 4px" }}
-                  onClick={(ev) => { ev.stopPropagation(); trocarIdioma(i); }}
-                  title="Onde buscar (clique para trocar)"
-                  aria-label={`Onde buscar ${e.termo}: ${e.idioma === "pt" ? "Brasil" : e.idioma === "en" ? "lá fora" : "automático"}. Trocar`}
-                >
-                  {e.idioma === "pt" ? "🇧🇷" : e.idioma === "en" ? "🇺🇸" : "🌎"}
-                </button>
                 <button type="button" onClick={(ev) => { ev.stopPropagation(); setEtiquetas((es) => es.filter((_, j) => j !== i)); }} aria-label={`Tirar ${e.termo}`}>
                   <Icone nome="x" tamanho={14} />
                 </button>
@@ -127,7 +111,7 @@ export default function MontarGarimpo() {
             />
           </div>
           <p className="fraco" style={{ fontSize: 13, marginTop: 8 }}>
-            ⏎ ou vírgula adiciona. Toque na bandeira para escolher onde buscar: 🇧🇷 Brasil, 🇺🇸 lá fora ou 🌎 automático.
+            ⏎ ou vírgula adiciona. A busca é feita no Brasil, em português.
           </p>
 
           <div className="secao-titulo">
@@ -177,20 +161,6 @@ export default function MontarGarimpo() {
                 <div key={f.id} className="fonte" aria-disabled="true">{corpo}</div>
               );
             })}
-          </div>
-
-          <div className="secao-titulo">Idioma</div>
-          <div className="chips">
-            {[["pt", "Português"], ["en", "Inglês"]].map(([k, r]) => (
-              <button
-                key={k}
-                className="chip"
-                aria-pressed={idiomas.includes(k)}
-                onClick={() => setIdiomas((ids) => (ids.includes(k) ? (ids.length > 1 ? ids.filter((x) => x !== k) : ids) : [...ids, k]))}
-              >
-                {r}
-              </button>
-            ))}
           </div>
 
           <div className="secao-titulo">Para</div>

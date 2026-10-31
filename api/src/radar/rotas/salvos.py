@@ -37,7 +37,7 @@ async def colecoes(e=Depends(sessao.atual)):
                   (array_agg(v.capa_path order by s.salvo_em desc) filter (where v.capa_path is not null))[1:3] as capas
            from colecoes c
            left join salvos s on s.colecao_id = c.id
-           left join videos v on s.item_tipo = 'video' and v.id = s.item_id
+           left join videos v on s.item_tipo in ('video', 'analise') and v.id = s.item_id
            where c.espaco_id = %s group by c.id order by c.criado_em""",
         (e["id"],),
     )
@@ -63,11 +63,33 @@ async def apagar_colecao(colecao_id: str, e=Depends(sessao.atual)):
     return {"ok": True}
 
 
+async def _analises(espaco_id, ids: list[str]) -> dict[str, str]:
+    """Referências às análises já gravadas no espaço, sem gerar respostas novas."""
+    if not ids:
+        return {}
+    conversas = await db.todos(
+        """select distinct on (video_id) video_id, resposta from conversas_video
+           where espaco_id = %s and video_id = any(%s) order by video_id, criado_em, pedido_id""",
+        (espaco_id, ids),
+    )
+    textos = {c["video_id"]: c["resposta"] for c in conversas}
+    anteriores = await db.todos(
+        "select video_id, resultado from analises_video where espaco_id = %s and video_id = any(%s)",
+        (espaco_id, ids),
+    )
+    for a in anteriores:
+        if a["video_id"] not in textos:
+            resultado = a["resultado"]
+            textos[a["video_id"]] = "\n\n".join(str(resultado.get(campo) or "") for campo in ("titulo", "resumo", "problema", "ideia", "publico"))
+    return textos
+
+
 async def _itens(c: dict) -> list[dict]:
     salvos = await db.todos("select item_tipo, item_id, salvo_em from salvos where colecao_id = %s order by salvo_em desc",
                             (c["id"],))
-    ids_video = [s["item_id"] for s in salvos if s["item_tipo"] == "video"]
+    ids_video = [s["item_id"] for s in salvos if s["item_tipo"] in ("video", "analise")]
     vids = {v["id"]: v for v in await db.todos(SELECT_VIDEO + " where v.id = any(%s)", (ids_video,))} if ids_video else {}
+    analises = await _analises(c["espaco_id"], [s["item_id"] for s in salvos if s["item_tipo"] == "analise"])
     ideias = {i["id"]: i for i in ideias_exemplo()}
     itens = []
     for s in salvos:
@@ -75,6 +97,8 @@ async def _itens(c: dict) -> list[dict]:
             itens.append({"tipo": "video", "salvo_em": s["salvo_em"], "video": vids[s["item_id"]]})
         elif s["item_tipo"] == "ideia" and s["item_id"] in ideias:
             itens.append({"tipo": "ideia", "salvo_em": s["salvo_em"], "ideia": ideias[s["item_id"]]})
+        elif s["item_tipo"] == "analise" and s["item_id"] in vids and s["item_id"] in analises:
+            itens.append({"tipo": "analise", "salvo_em": s["salvo_em"], "video": vids[s["item_id"]], "texto": analises[s["item_id"]]})
     return itens
 
 
@@ -86,6 +110,7 @@ async def ver_colecao(colecao_id: str, e=Depends(sessao.atual)):
         "id": c["id"], "nome": c["nome"],
         "itens": [
             {"tipo": "video", "salvo_em": i["salvo_em"], "video": cartao(i["video"])} if i["tipo"] == "video"
+            else {"tipo": "analise", "salvo_em": i["salvo_em"], "video": cartao(i["video"]), "resumo": i["texto"][:400]} if i["tipo"] == "analise"
             else {"tipo": "ideia", "salvo_em": i["salvo_em"],
                   "ideia": {k: v for k, v in i["ideia"].items() if k != "serie_30d"}}
             for i in itens
@@ -95,7 +120,7 @@ async def ver_colecao(colecao_id: str, e=Depends(sessao.atual)):
 
 class Salvar(BaseModel):
     colecao_id: str
-    item_tipo: Literal["video", "ideia"]
+    item_tipo: Literal["video", "ideia", "analise"]
     item_id: str = Field(max_length=200)
 
 
@@ -104,6 +129,8 @@ async def salvar(dados: Salvar, e=Depends(sessao.atual)):
     c = await _colecao(dados.colecao_id, e)
     if dados.item_tipo == "video" and not await db.um("select 1 from videos where id = %s", (dados.item_id,)):
         raise HTTPException(404, "Vídeo não encontrado.")
+    if dados.item_tipo == "analise" and dados.item_id not in await _analises(e["id"], [dados.item_id]):
+        raise HTTPException(409, "Analise este vídeo antes de salvar a análise.")
     await db.executar(
         "insert into salvos (colecao_id, item_tipo, item_id) values (%s, %s, %s) on conflict do nothing",
         (c["id"], dados.item_tipo, dados.item_id),
@@ -155,6 +182,11 @@ async def planilha(colecao_id: str, e=Depends(sessao.atual)):
                 f"{v['duracao_s']} s" if v.get("duracao_s") else "", tela, "", av.get("nota") or "",
                 v.get("autor") or "", v["url_original"], "", "", "", "", "",
             ])
+        elif i["tipo"] == "analise":
+            v = i["video"]
+            w.writerow([v.get("gancho") or (v.get("texto") or "").split("\n")[0][:160], "", "Análise", v["fonte"],
+                        v.get("idioma") or "", "", "", "", "", "", v.get("autor") or "", v["url_original"],
+                        "", "", "", i["texto"], ""])
         else:
             ideia = i["ideia"]
             cres = ideia.get("crescimento")

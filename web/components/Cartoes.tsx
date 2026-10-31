@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { capaUrl, num, pct, tiktokId } from "@/lib/fmt";
 import type { Ideia, ItemVeredito, Video } from "@/lib/tipos";
+import { EscolhaVideo } from "./EscolhaVideo";
 import { Icone } from "./Icone";
 import { SeloFonte } from "./SeloFonte";
 
@@ -19,6 +20,7 @@ export function playerTikTok(id: string, controles = false) {
 
 export function CartaoVideo({ v, aoSalvar, salvo }: { v: Video; aoSalvar?: (v: Video) => void; salvo?: boolean }) {
   const [tocando, setTocando] = useState(false);
+  const [escolhendo, setEscolhendo] = useState(false);
   const espera = useRef<ReturnType<typeof setTimeout> | null>(null);
   const capa = capaUrl(v.capa);
   const tt = tiktokId(v.id);
@@ -47,7 +49,8 @@ export function CartaoVideo({ v, aoSalvar, salvo }: { v: Video; aoSalvar?: (v: V
 
   return (
     <div className="cartao-video" onMouseEnter={entrar} onMouseLeave={sairDoCartao}>
-      <Link href={`/video/${encodeURIComponent(v.id)}`} aria-label={`Abrir a ficha do vídeo de ${v.autor ?? "autor"}`}>
+      <button type="button" className="cartao-video-abrir" aria-expanded={escolhendo} onClick={() => setEscolhendo((a) => !a)}
+        aria-label={`Abrir o vídeo de ${v.autor ?? "autor"}`}>
         <div className="capa">
           {capa ? <img src={capa} alt="" loading="lazy" /> : <div className="capa-vazia" />}
           {tocando && tt && <iframe src={playerTikTok(tt)} title="Vídeo tocando sem som" allow="autoplay; encrypted-media" />}
@@ -59,7 +62,8 @@ export function CartaoVideo({ v, aoSalvar, salvo }: { v: Video; aoSalvar?: (v: V
             <p className="gancho">{v.gancho ?? primeiraLinha(v.texto, "")}</p>
           </div>
         </div>
-      </Link>
+      </button>
+      {escolhendo && <EscolhaVideo id={v.id} fechar={() => setEscolhendo(false)} />}
       {aoSalvar && (
         <button
           className="salvar"

@@ -26,6 +26,33 @@ class Config(BaseSettings):
     resultados_por_busca: int = 12
     buscar_hashtag: bool = True
 
+    # IA: análise "vale criar um SaaS?", conversa e analista de oportunidades, todos no Gemini
+    gemini_api_key: SecretStr | None = None
+    modelo_analise: str = "gemini-3.5-flash"
+    modelo_oportunidades: str = "gemini-3.5-flash"
+    # preço do gemini-3.5-flash (out/2026): por 1 milhão de tokens e por busca na web
+    gemini_usd_entrada_milhao: float = 1.50
+    gemini_usd_saida_milhao: float = 9.00
+    gemini_usd_por_busca: float = 0.014
+    # triagem da busca (modo Achar ideia): nota de 0 a 100 pelos critérios de radar.criterios;
+    # vídeos abaixo disto ficam de fora
+    triagem_ligada: bool = True
+    nota_minima_saas: int = 60
+    # por enquanto as buscas e as listas de vídeos ficam só em português do Brasil
+    so_portugues: bool = True
+    # vitrine da página Ideias: busca automática semanal (~US$ 0,15 por palavra nas duas fontes)
+    vitrine_ligada: bool = True
+    vitrine_termos_por_semana: int = 5
+    analises_por_dia: int = 30
+    mensagens_chat_por_dia: int = 60
+
+    # analista de oportunidades: comentários dos vídeos com mais views, buscados só quando pedem a análise
+    oportunidades_por_dia: int = 10
+    oportunidades_videos: int = 8
+    comentarios_por_video: int = 15
+    actor_comentarios_tiktok: str = "clockworks~tiktok-comments-scraper"
+    actor_comentarios_instagram: str = "apify~instagram-comment-scraper"
+
     supabase_url: str | None = None
     # e-mails dos donos: no primeiro login ficam com o espaço de desenvolvimento e o plano Pro
     donos: str = ""

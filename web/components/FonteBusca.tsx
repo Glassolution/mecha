@@ -33,6 +33,7 @@ export function SeletorCompacto<T extends string>({ rotulo, opcoes, valor, mudar
       </button>
       {aberto && (
         <div className="fonte-busca-menu" role="menu" aria-label={rotulo}>
+          <span className="fonte-busca-titulo" aria-hidden="true">{rotulo}</span>
           {opcoes.map((o) => (
             <button key={o.id} type="button" role="menuitemradio" aria-checked={o.id === valor} className="fonte-busca-item"
               onClick={() => { mudar(o.id); setAberto(false); }}>

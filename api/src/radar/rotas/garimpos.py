@@ -72,18 +72,21 @@ async def _do_espaco(garimpo_id: str, e: dict) -> dict:
 
 def _resumo(g: dict) -> dict:
     return {k: g[k] for k in ("id", "modo", "termos", "fontes", "idiomas", "criterios", "status", "agora", "por_fonte",
-                              "vistos", "transcritos", "com_saas", "ideias_novas", "criado_em", "fim_em")}
+                              "vistos", "transcritos", "com_saas", "ideias_novas", "fracos", "criado_em", "fim_em")}
 
 
 @r.post("/garimpos")
 async def criar(dados: NovoGarimpo, e=Depends(sessao.atual)):
     fontes = [f for f in dados.fontes if f in garimpo.FONTES] or ["tiktok"]
     termos_idioma = {normalizar_termo(k): v for k, v in dados.termos_idioma.items()}
+    idiomas = dados.idiomas
+    if config().so_portugues:  # toda palavra é buscada no Brasil, em português
+        idiomas, termos_idioma = ["pt"], {t: "pt" for t in dados.termos}
     await gastar_garimpo(e)
     g = await db.um(
         """insert into garimpos (espaco_id, modo, termos, termos_idioma, fontes, idiomas, criterios, por_fonte)
            values (%s, %s, %s, %s, %s, %s, %s, %s) returning id""",
-        (e["id"], dados.modo, dados.termos, json.dumps(termos_idioma), fontes, dados.idiomas,
+        (e["id"], dados.modo, dados.termos, json.dumps(termos_idioma), fontes, idiomas,
          json.dumps(dados.criterios), json.dumps({f: {"status": "na_fila"} for f in fontes})),
     )
     await (await fila()).enqueue_job("rodar_garimpo", str(g["id"]), _job_id=f"garimpo:{g['id']}")
@@ -138,12 +141,16 @@ async def fluxo_ao_vivo(garimpo_id: str, request: Request, e=Depends(sessao.atua
 
     async def eventos():
         nonlocal ultimo
-        if not ultimo:
+        atual = await db.um("select * from garimpos where id = %s", (gid,))
+        terminou = atual["status"] in ("concluido", "erro", "parado")
+        if not ultimo or terminou:
             # retrato: o estado inteiro ao conectar
             ultimo = await fluxo.ultimo_id(gid)
-            atual = await db.um("select * from garimpos where id = %s", (gid,))
             retrato = {"garimpo": _resumo(atual), "videos": await _mais_novos(gid)}
             yield _sse("retrato", retrato, ultimo)
+            if terminou:
+                yield _sse("fim", {k: atual[k] for k in ("status", "vistos", "transcritos", "com_saas", "ideias_novas", "fracos")}, ultimo)
+                return
         while True:
             if await request.is_disconnected():
                 return
@@ -161,6 +168,54 @@ async def fluxo_ao_vivo(garimpo_id: str, request: Request, e=Depends(sessao.atua
         eventos(), media_type="text/event-stream",
         headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"},
     )
+
+
+_SELECT_OPORTUNIDADES = """select status, etapa, resultado, erro, criado_em, atualizado_em from oportunidades_garimpo
+                           where garimpo_id = %s"""
+
+
+@r.get("/garimpos/{garimpo_id}/oportunidades")
+async def ver_oportunidades(garimpo_id: str, e=Depends(sessao.atual)):
+    """A análise de oportunidades deste garimpo, ou null (a tela oferece o botão)."""
+    g = await _do_espaco(garimpo_id, e)
+    return await db.um(_SELECT_OPORTUNIDADES, (g["id"],))
+
+
+@r.post("/garimpos/{garimpo_id}/oportunidades")
+async def pedir_oportunidades(garimpo_id: str, e=Depends(sessao.atual)):
+    """Uma análise por garimpo: pedir de novo devolve a mesma; se deu erro (ou travou), refaz."""
+    g = await _do_espaco(garimpo_id, e)
+    if g["status"] != "concluido":
+        raise HTTPException(409, "Espere a busca terminar para analisar as oportunidades.")
+    if not await db.um("select 1 from garimpo_videos where garimpo_id = %s limit 1", (g["id"],)):
+        raise HTTPException(409, "Esta busca não trouxe vídeos para analisar.")
+    feita = await db.um(_SELECT_OPORTUNIDADES, (g["id"],))
+    if feita:
+        refazer = await db.um(
+            """update oportunidades_garimpo set status = 'analisando', etapa = null, erro = null, atualizado_em = now()
+               where garimpo_id = %s and (status = 'erro'
+                     or (status = 'analisando' and atualizado_em < now() - interval '15 minutes'))
+               returning garimpo_id""",
+            (g["id"],),
+        )
+        if not refazer:
+            return feita
+    else:
+        hoje = await db.um(
+            "select count(*) as n from oportunidades_garimpo where espaco_id = %s and criado_em > now() - interval '1 day'",
+            (e["id"],),
+        )
+        if hoje["n"] >= config().oportunidades_por_dia:
+            raise HTTPException(429, "Você chegou ao limite de análises de oportunidades de hoje. Volte amanhã.")
+        nova = await db.um(
+            """insert into oportunidades_garimpo (garimpo_id, espaco_id) values (%s, %s)
+               on conflict (garimpo_id) do nothing returning garimpo_id""",
+            (g["id"], e["id"]),
+        )
+        if not nova:
+            return await db.um(_SELECT_OPORTUNIDADES, (g["id"],))
+    await (await fila()).enqueue_job("analisar_oportunidades", str(g["id"]))
+    return await db.um(_SELECT_OPORTUNIDADES, (g["id"],))
 
 
 def _sse(tipo: str, dados, id_: str) -> str:

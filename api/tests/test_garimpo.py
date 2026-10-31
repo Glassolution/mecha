@@ -30,6 +30,12 @@ async def test_garimpo_do_zero_ao_fim(cliente):
     assert g["por_fonte"]["tiktok"]["status"] == "pronto"
     tipos = [t for t, _ in await _eventos(gid)]
     assert "chegou" in tipos and tipos[-1] == "fim"
+    etapas = [d.get("etapa") for t, d in await _eventos(gid) if t == "fonte"]
+    assert etapas[0] == "preparando" and etapas[-1] == "concluido"
+    assert etapas.index("buscando") < etapas.index("organizando")
+    # O equivalente inglês da segunda palavra já foi consultado na primeira.
+    assert etapas.index("cache") > etapas.index("organizando")
+    assert g["por_fonte"]["tiktok"]["novos"] == 6
     grade = (await cliente.get(f"/api/garimpos/{gid}/videos")).json()
     assert len(grade) == 6 and grade[0]["views"] >= grade[-1]["views"]
 
@@ -49,6 +55,8 @@ async def test_cache_de_7_dias_nao_chama_o_provedor(cliente):
     await garimpo.rodar(gid, {"tiktok": segundo})
     assert segundo.chamadas == []
     assert (await cliente.get(f"/api/garimpos/{gid}")).json()["vistos"] == 6
+    etapas = [d.get("etapa") for t, d in await _eventos(gid) if t == "fonte"]
+    assert "cache" in etapas and "buscando" not in etapas
 
 
 async def test_parar_deixa_parado_e_o_que_chegou_fica(cliente):
@@ -65,7 +73,8 @@ async def test_parar_deixa_parado_e_o_que_chegou_fica(cliente):
     await garimpo.rodar(gid, {"tiktok": coletor})
     g = (await cliente.get(f"/api/garimpos/{gid}")).json()
     assert g["status"] == "parado"
-    assert len(coletor.chamadas) == 1  # conferiu o Parar antes da palavra seguinte
+    # as buscas que já tinham saído juntas são descartadas; nada depois do Parar é guardado
+    assert len(coletor.chamadas) <= garimpo._SIMULTANEAS
     assert g["vistos"] == 3
 
 
@@ -130,6 +139,17 @@ async def test_eventos_tem_id_para_retomar(cliente):
     depois = await fluxo.ler(gid, meio, bloquear_ms=10)
     assert [e[0] for e in depois] == [e[0] for e in todos[len(todos) // 2 + 1:]]
     assert json.dumps(depois[-1][2])  # dados serializáveis
+
+
+async def test_fluxo_ja_concluido_entrega_retrato_e_fecha(cliente):
+    import asyncio
+    gid = await _criar(cliente)
+    await garimpo.rodar(gid, {"tiktok": ColetorSimulado()})
+    for headers in ({}, {"Last-Event-ID": "0-0"}):
+        r = await asyncio.wait_for(cliente.get(f"/api/garimpos/{gid}/fluxo", headers=headers), timeout=3)
+        assert r.status_code == 200
+        assert "event: retrato" in r.text and "event: fim" in r.text
+        assert '"status": "concluido"' in r.text
 
 
 async def test_explorar_em_alta_e_filtro_por_nicho(cliente):
@@ -207,3 +227,141 @@ async def test_erro_no_instagram_nao_derruba_o_tiktok(cliente):
     assert g["status"] == "concluido"
     assert g["por_fonte"]["tiktok"]["status"] == "pronto"
     assert g["por_fonte"]["instagram"] == {**g["por_fonte"]["instagram"], "status": "erro", "detalhe": "O Instagram não respondeu agora."}
+
+
+async def test_fontes_e_idiomas_buscam_ao_mesmo_tempo(cliente):
+    import asyncio
+    import time
+
+    class Lento(ColetorSimulado):
+        async def buscar(self, termo, idioma, limite, deve_parar):
+            await asyncio.sleep(0.3)
+            return await super().buscar(termo, idioma, limite, deve_parar)
+
+    gid = await _criar(cliente, fontes=["tiktok", "instagram"])
+    tiktok, instagram = Lento(), Lento()
+    inicio = time.monotonic()
+    await garimpo.rodar(gid, {"tiktok": tiktok, "instagram": instagram})
+    # 2 fontes x 2 buscas de 0,3 s: em fila levaria 1,2 s
+    assert time.monotonic() - inicio < 0.6
+    assert len(tiktok.chamadas) == 2 and len(instagram.chamadas) == 2
+    assert (await cliente.get(f"/api/garimpos/{gid}")).json()["status"] == "concluido"
+
+
+def _criterios(nota: int) -> dict:
+    """Divide uma nota de 0 a 100 entre os quatro critérios (cada um de 0 a 25)."""
+    base, resto = divmod(nota, 4)
+    return dict(zip(["dor_real", "quem_paga", "replicavel", "vende_em_video"], [base + (i < resto) for i in range(4)]))
+
+
+def _triagem_falsa(monkeypatch, nota_de):
+    """Gemini simulado: dá a nota que `nota_de(id)` mandar e guarda os ids avaliados."""
+    from radar import gemini
+
+    avaliados = []
+
+    async def gerar(modelo, sistema, conteudos, **kw):
+        dados = json.loads(conteudos[0]["parts"][0]["text"])
+        avaliados.extend(v["id"] for v in dados)
+        notas = [{"id": v["id"], **_criterios(nota_de(v["id"])), "motivo": "teste", "idioma": "outro"} for v in dados]
+        return gemini.Resposta(texto=json.dumps({"videos": notas}), tokens=10, custo_usd=0.001, buscas=0)
+
+    monkeypatch.setattr(gemini, "gerar", gerar)
+    return avaliados
+
+
+async def test_triagem_tira_os_fracos_e_nao_avalia_de_novo(cliente, monkeypatch):
+    avaliados = _triagem_falsa(monkeypatch, lambda vid: 10 if vid.endswith(("0", "2")) else 80)
+    gid = await _criar(cliente, termos=["ai for doctors"], idiomas=["en"])
+    await garimpo.rodar(gid, {"tiktok": ColetorSimulado()})
+    g = (await cliente.get(f"/api/garimpos/{gid}")).json()
+    grade = (await cliente.get(f"/api/garimpos/{gid}/videos")).json()
+    assert [v["id"] for v in grade] == ["tt:sim11"] and g["fracos"] == 2 and g["vistos"] == 1
+    assert sorted(avaliados) == ["tt:sim10", "tt:sim11", "tt:sim12"]
+    nota = await db.um("select potencial_saas, potencial_motivo from videos where id = 'tt:sim10'")
+    assert nota == {"potencial_saas": 10, "potencial_motivo": "teste"}
+    # a mesma busca de novo vem do cache e usa as notas guardadas, sem chamar o Gemini
+    outro = await _criar(cliente, termos=["ai for doctors"], idiomas=["en"])
+    await garimpo.rodar(outro, {"tiktok": ColetorSimulado()})
+    assert len(avaliados) == 3 and (await cliente.get(f"/api/garimpos/{outro}")).json()["fracos"] == 2
+
+
+async def test_triagem_so_no_modo_ideia_e_falha_nao_esconde(cliente, monkeypatch):
+    from radar import gemini
+
+    avaliados = _triagem_falsa(monkeypatch, lambda vid: 0)
+    gid = await _criar(cliente, termos=["ai for doctors"], idiomas=["en"], modo="criativo")
+    await garimpo.rodar(gid, {"tiktok": ColetorSimulado()})
+    assert avaliados == [] and len((await cliente.get(f"/api/garimpos/{gid}/videos")).json()) == 3
+
+    async def quebra(*a, **kw):
+        raise RuntimeError("Gemini fora do ar")
+
+    monkeypatch.setattr(gemini, "gerar", quebra)
+    await db.executar("truncate busca_cache")
+    gid = await _criar(cliente, termos=["ai tool"], idiomas=["en"])
+    await garimpo.rodar(gid, {"tiktok": ColetorSimulado()})
+    g = (await cliente.get(f"/api/garimpos/{gid}")).json()
+    assert g["status"] == "concluido" and g["vistos"] == 3 and g["fracos"] == 0
+
+
+async def test_ideias_mostram_so_videos_com_potencial(cliente):
+    from radar.biblioteca import gravar_video
+
+    async with db.conexao() as con:
+        for n in (1, 2, 3):
+            await gravar_video(con, video_simulado(n), "ai notes")
+    await db.executar("update videos set potencial_saas = 90, potencial_motivo = 'Rotina de clínica' where id = 'tt:sim1'")
+    await db.executar("update videos set potencial_saas = 5 where id = 'tt:sim2'")
+    r = (await cliente.get("/api/videos?so_potencial=true&ordem=em_alta")).json()
+    assert [v["id"] for v in r["itens"]] == ["tt:sim1"] and r["total"] == 1
+    assert r["itens"][0]["potencial_motivo"] == "Rotina de clínica"
+    assert (await cliente.get("/api/videos")).json()["total"] == 3
+
+
+async def test_so_portugues_busca_no_brasil_e_esconde_o_resto(cliente, monkeypatch):
+    from radar.config import config
+
+    monkeypatch.setattr(config(), "so_portugues", True)
+    gid = await _criar(cliente, termos=["ai for doctors", "app para médicos"], idiomas=["pt", "en"])
+    g = await db.um("select idiomas, termos_idioma from garimpos where id = %s", (gid,))
+    assert g["idiomas"] == ["pt"] and g["termos_idioma"] == {"ai for doctors": "pt", "app para médicos": "pt"}
+    coletor = ColetorSimulado()
+
+    async def buscar_em_ingles(termo, idioma, limite, deve_parar):  # o provedor devolve vídeos em inglês
+        r = await ColetorSimulado.buscar(coletor, termo, idioma, limite, deve_parar)
+        r.videos[0].idioma = "en"
+        return r
+
+    coletor.buscar = buscar_em_ingles
+    await garimpo.rodar(gid, {"tiktok": coletor})
+    # nenhuma busca em inglês, nem o equivalente das sugestões; vídeo em inglês fica de fora
+    assert {idioma for _, idioma in coletor.chamadas} == {"pt"}
+    grade = (await cliente.get(f"/api/garimpos/{gid}/videos")).json()
+    assert len(grade) == 4 and all(v["idioma"] == "pt" for v in grade)
+    async with db.conexao() as con:
+        await gravar_video(con, video_simulado(50, idioma="pt", texto="App para clínica"), "app para médicos")
+        await gravar_video(con, video_simulado(51, idioma="en"), "app para médicos")
+    r = (await cliente.get("/api/videos")).json()
+    assert "tt:sim50" in [v["id"] for v in r["itens"]] and all(v["idioma"] == "pt" for v in r["itens"])
+    # quem escolhe outra língua na tela vê os vídeos dela
+    assert {v["idioma"] for v in (await cliente.get("/api/videos?idioma=en")).json()["itens"]} <= {"en"}
+    assert len((await cliente.get("/api/videos?idioma=todos")).json()["itens"]) > len(r["itens"])
+
+
+async def test_triagem_corrige_o_idioma_e_tira_outra_lingua(cliente, monkeypatch):
+    from radar import gemini, triagem
+
+    async with db.conexao() as con:
+        await gravar_video(con, video_simulado(60, idioma="pt", texto="Not Shopify, fully automated"), "app")
+        await gravar_video(con, video_simulado(61, idioma="pt", texto="App para clínica"), "app")
+
+    async def gerar(*a, **kw):
+        notas = [{"id": "tt:sim60", **_criterios(80), "motivo": "x", "idioma": "en"},
+                 {"id": "tt:sim61", **_criterios(80), "motivo": "y", "idioma": "pt"}]
+        return gemini.Resposta(texto=json.dumps({"videos": notas}), tokens=1, custo_usd=0, buscas=0)
+
+    monkeypatch.setattr(gemini, "gerar", gerar)
+    passam, fracos = await triagem.filtrar(["tt:sim60", "tt:sim61"], ["pt"])
+    assert passam == ["tt:sim61"] and fracos == set()
+    assert (await db.um("select idioma from videos where id = 'tt:sim60'"))["idioma"] == "en"

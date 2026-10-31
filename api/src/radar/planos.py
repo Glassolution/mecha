@@ -7,9 +7,9 @@ from fastapi import HTTPException
 from radar import db
 
 PLANOS = {
-    "gratis": {"nome": "Grátis", "garimpos": 3, "planos_ideia": 1, "itens_completos": 20},
-    "pro": {"nome": "Pro", "garimpos": 40, "planos_ideia": 20, "itens_completos": None},
-    "agencia": {"nome": "Agência", "garimpos": 150, "planos_ideia": 100, "itens_completos": None},
+    "gratis": {"nome": "Grátis", "garimpos": 3, "planos_ideia": 1, "itens_completos": 20, "preco_mensal_centavos": 0},
+    "pro": {"nome": "Pro", "garimpos": 40, "planos_ideia": 20, "itens_completos": None, "preco_mensal_centavos": 4990},
+    "agencia": {"nome": "Agência", "garimpos": 150, "planos_ideia": 100, "itens_completos": None, "preco_mensal_centavos": 7990},
 }
 
 

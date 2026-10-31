@@ -1,13 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Mascote } from "./Mascote";
+import { Pose, type NomePose } from "./Pose";
 
 // Repertório do mascote nas telas de entrada: uma ação por vez, em ordem aleatória, sem repetir a anterior.
 const ACOES = ["pulinho", "inspeciona", "procura", "achei", "cambalhota", "espia", "aceno", "danca"] as const;
 type Acao = (typeof ACOES)[number];
 
 export type ModoMascote = "normal" | "lendo" | "tapando" | "espiando";
+
+// cada ação e cada modo mostram uma pose da Wae
+const POSE_DA_ACAO: Record<Acao, NomePose> = {
+  pulinho: "pulando", inspeciona: "pensando", procura: "andando", achei: "pulando",
+  cambalhota: "pulando", espia: "pensando", aceno: "oi", danca: "bracos-abertos",
+};
+const POSE_DO_MODO: Record<Exclude<ModoMascote, "normal">, NomePose> = { lendo: "pensando", tapando: "sentado", espiando: "pensando" };
 
 /**
  * O mascote "atuando": entre uma ação e outra fica respirando; reage ao que a pessoa faz
@@ -41,11 +48,12 @@ export function MascoteAtor({ tamanho = 76, modo = "normal", comemora = 0 }: { t
   }, [comemora]);
 
   const classe = modo !== "normal" ? `modo-${modo}` : acao ? `acao-${acao.nome}` : "";
+  const pose = modo !== "normal" ? POSE_DO_MODO[modo] : acao ? POSE_DA_ACAO[acao.nome] : "acenando";
   return (
     <div className="ator" aria-hidden="true">
       {/* a key reinicia a animação a cada ação nova */}
       <div key={modo !== "normal" ? modo : acao?.vez ?? 0} className={`ator-palco ${classe}`}>
-        <Mascote tamanho={tamanho} />
+        <Pose nome={pose} largura={tamanho} />
       </div>
     </div>
   );

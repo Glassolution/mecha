@@ -5,9 +5,10 @@ Uso: uv run arq radar.trabalhador.Trabalhador
 
 import logging
 
+from arq import cron
 from arq.connections import RedisSettings
 
-from radar import db, garimpo
+from radar import db, garimpo, oportunidades, vitrine
 from radar.coleta.apify_instagram import ApifyInstagram
 from radar.coleta.apify_tiktok import ApifyTikTok
 from radar.config import config
@@ -36,8 +37,18 @@ async def rodar_garimpo(ctx, garimpo_id: str):
     await garimpo.rodar(garimpo_id, ctx["coletores"])
 
 
+async def analisar_oportunidades(ctx, garimpo_id: str):
+    await oportunidades.rodar(garimpo_id)
+
+
+async def abastecer_vitrine(ctx):
+    await vitrine.abastecer(ctx["coletores"])
+
+
 class Trabalhador:
-    functions = [rodar_garimpo]
+    functions = [rodar_garimpo, analisar_oportunidades]
+    # de hora em hora; só busca quando a última vitrine tem 7 dias ou mais
+    cron_jobs = [cron(abastecer_vitrine, minute=7, run_at_startup=True, unique=True)]
     on_startup = ao_iniciar
     on_shutdown = ao_parar
     redis_settings = RedisSettings.from_dsn(config().redis_url)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export class ErroApi extends Error {
   constructor(public status: number, public dados: { mensagem?: string; botao?: string }) {
@@ -32,6 +32,7 @@ export async function api<T = unknown>(caminho: string, init?: RequestInit & { j
 }
 
 const cache = new Map<string, unknown>();
+const invalidacoes = new Set<(prefixo: string) => void>();
 
 type Estado<T> = { caminho: string | null; dados?: T; erro: ErroApi | null; carregando: boolean };
 
@@ -44,29 +45,43 @@ function inicial<T>(caminho: string | null): Estado<T> {
   };
 }
 
-/** Busca dados com um cache simples por endereço. */
-export function useApi<T>(caminho: string | null) {
+/** Cache por endereço; telas persistentes podem acompanhar invalidações sem recarregar a página. */
+export function useApi<T>(caminho: string | null, { atualizarAoInvalidar = false }: { atualizarAoInvalidar?: boolean } = {}) {
   const [estado, setEstado] = useState<Estado<T>>(() => inicial<T>(caminho));
+  const pedidoAtual = useRef({ numero: 0 });
   if (estado.caminho !== caminho) setEstado(inicial<T>(caminho));
 
   const recarregar = useCallback(async () => {
     if (!caminho) return;
+    const pedido = ++pedidoAtual.current.numero;
     try {
       const d = await api<T>(caminho);
+      if (pedido !== pedidoAtual.current.numero) return;
       cache.set(caminho, d);
       setEstado((e) => (e.caminho === caminho ? { ...e, dados: d, erro: null, carregando: false } : e));
     } catch (err) {
+      if (pedido !== pedidoAtual.current.numero) return;
       setEstado((e) => (e.caminho === caminho ? { ...e, erro: err as ErroApi, carregando: false } : e));
     }
   }, [caminho]);
 
   useEffect(() => {
+    const controle = pedidoAtual.current;
+    const invalidar = (prefixo: string) => {
+      if (caminho?.startsWith(prefixo)) void recarregar();
+    };
+    if (atualizarAoInvalidar && caminho) invalidacoes.add(invalidar);
     recarregar();
-  }, [recarregar]);
+    return () => {
+      invalidacoes.delete(invalidar);
+      controle.numero++;
+    };
+  }, [caminho, recarregar, atualizarAoInvalidar]);
 
   return { dados: estado.caminho === caminho ? estado.dados : undefined, erro: estado.erro, carregando: estado.carregando, recarregar };
 }
 
 export function limparCache(prefixo = "") {
   for (const k of cache.keys()) if (k.startsWith(prefixo)) cache.delete(k);
+  for (const invalidar of invalidacoes) invalidar(prefixo);
 }
