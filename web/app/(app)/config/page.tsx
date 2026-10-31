@@ -280,16 +280,15 @@ const STATUS_ASSINATURA: Record<NonNullable<Eu["assinatura"]>["status"], string>
 function SecaoAssinatura({ eu }: { eu: Eu }) {
   const { recarregarEu, avisar } = useApp();
   const [ocupado, setOcupado] = useState<"cancelar" | "reembolsar" | null>(null);
+  // confirmação na própria tela (o confirm() do navegador some em alguns navegadores embutidos)
+  const [confirmando, setConfirmando] = useState<"cancelar" | "reembolsar" | null>(null);
   const a = eu.assinatura;
   const ate = a?.pago_ate ? new Date(a.pago_ate).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : null;
   const viva = a && (a.status === "aguardando" || a.status === "ativa" || a.status === "atrasada");
   const comAcesso = a && ate && a.pago_ate && new Date(a.pago_ate) > new Date() && a.status !== "reembolsada";
 
   async function acao(tipo: "cancelar" | "reembolsar") {
-    const pergunta = tipo === "cancelar"
-      ? `Cancelar a assinatura? ${comAcesso ? `Você continua com o plano até ${ate}.` : ""}`
-      : "Pedir o reembolso? O valor volta pelo mesmo meio de pagamento e o plano Grátis volta na hora.";
-    if (!confirm(pergunta)) return;
+    setConfirmando(null);
     setOcupado(tipo);
     try {
       await api(`/api/assinatura/${tipo}`, { method: "POST" });
@@ -324,10 +323,24 @@ function SecaoAssinatura({ eu }: { eu: Eu }) {
       </Linha>
       {(viva || a?.pode_reembolsar) && (
         <Linha titulo="Gerenciar" dica={a?.pode_reembolsar ? "Nos primeiros 7 dias depois do primeiro pagamento, o reembolso é integral." : undefined}>
-          <div className="cfg-assinatura">
-            {viva && <button type="button" className="bt2" onClick={() => acao("cancelar")} disabled={!!ocupado}>{ocupado === "cancelar" ? "Cancelando…" : "Cancelar assinatura"}</button>}
-            {a?.pode_reembolsar && <button type="button" className="bt3" onClick={() => acao("reembolsar")} disabled={!!ocupado}>{ocupado === "reembolsar" ? "Pedindo…" : "Pedir reembolso"}</button>}
-          </div>
+          {confirmando ? (
+            <div className="cfg-assinatura" role="group" aria-label="Confirmação">
+              <span className="cfg-valor">
+                {confirmando === "cancelar"
+                  ? `Cancelar a assinatura?${comAcesso ? ` Você continua com o plano até ${ate}.` : ""}`
+                  : "Pedir o reembolso? O valor volta pelo mesmo meio de pagamento e o plano Grátis volta na hora."}
+              </span>
+              <button type="button" className="bt1" onClick={() => acao(confirmando)} disabled={!!ocupado}>
+                {confirmando === "cancelar" ? "Sim, cancelar" : "Sim, reembolsar"}
+              </button>
+              <button type="button" className="bt3" onClick={() => setConfirmando(null)} disabled={!!ocupado}>Voltar</button>
+            </div>
+          ) : (
+            <div className="cfg-assinatura">
+              {viva && <button type="button" className="bt2" onClick={() => setConfirmando("cancelar")} disabled={!!ocupado}>{ocupado === "cancelar" ? "Cancelando…" : "Cancelar assinatura"}</button>}
+              {a?.pode_reembolsar && <button type="button" className="bt3" onClick={() => setConfirmando("reembolsar")} disabled={!!ocupado}>{ocupado === "reembolsar" ? "Pedindo…" : "Pedir reembolso"}</button>}
+            </div>
+          )}
         </Linha>
       )}
     </>
