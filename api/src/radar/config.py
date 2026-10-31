@@ -61,12 +61,24 @@ class Config(BaseSettings):
     # e-mails dos donos: no primeiro login ficam com o espaço de desenvolvimento e o plano Pro
     donos: str = ""
 
+    # Asaas (assinaturas): sem a chave, o botão de assinar não aparece
+    asaas_api_key: SecretStr | None = None
+    asaas_ambiente: str = "sandbox"  # sandbox | producao (a chave tem que ser do mesmo ambiente)
+    # token que o Asaas manda no cabeçalho asaas-access-token de cada aviso (definido ao criar o webhook)
+    asaas_webhook_token: SecretStr | None = None
+    tolerancia_dias: int = 3  # dias de acesso depois do vencimento sem pagamento
+    dias_arrependimento: int = 7  # reembolso pela própria pessoa (Código de Defesa do Consumidor, art. 49)
+
     site_url: str = "http://localhost:3000"
     cookie_seguro: bool = False  # True em produção (HTTPS)
 
     @property
     def pasta_capas(self) -> Path:
         return self.pasta_dados / "capas"
+
+    @property
+    def asaas_url(self) -> str:
+        return "https://api.asaas.com/v3" if self.asaas_ambiente == "producao" else "https://api-sandbox.asaas.com/v3"
 
 
 @lru_cache

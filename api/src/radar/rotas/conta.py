@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from psycopg.errors import UniqueViolation
 from pydantic import BaseModel, Field, field_validator
 
-from radar import admin, db, sessao
+from radar import admin, asaas, assinaturas, db, sessao
 from radar.armazenamento import dominio_do_site, logo_do_site
 from radar.config import config
 from radar.nichos import NICHOS
@@ -16,7 +16,7 @@ from radar.planos import PLANOS, uso
 r = APIRouter(prefix="/api")
 
 
-def _publico(e: dict, u: dict, meu_saas: dict | None) -> dict:
+def _publico(e: dict, u: dict, meu_saas: dict | None, assinatura: dict | None = None) -> dict:
     plano = PLANOS[e["plano"]]
     return {
         "admin": admin.permitido(e.get("_email_autenticado")),
@@ -33,19 +33,20 @@ def _publico(e: dict, u: dict, meu_saas: dict | None) -> dict:
         "meu_saas": meu_saas,
         "plano": {"id": e["plano"], "nome": plano["nome"], "garimpos": plano["garimpos"]},
         "uso": {"garimpos": u["garimpos"], "planos_ideia": u["planos_ideia"]},
+        "assinatura": assinatura,
     }
 
 
 @r.get("/eu")
 async def eu(e=Depends(sessao.atual)):
     meu = await db.um("select nome, tipo, link, o_que_faz from meus_saas where espaco_id = %s order by nome limit 1", (e["id"],))
-    return _publico(e, await uso(e["id"]), meu)
+    return _publico(e, await uso(e["id"]), meu, await assinaturas.resumo(e["id"]))
 
 
 @r.get("/planos")
 async def listar_planos(e=Depends(sessao.atual)):
     return {
-        "moeda": "BRL", "periodicidade": "mensal", "contratacao_disponivel": False,
+        "moeda": "BRL", "periodicidade": "mensal", "contratacao_disponivel": asaas.configurado(),
         "itens": [{"id": id, "nome": p["nome"], "garimpos": p["garimpos"],
                    "itens_completos": p["itens_completos"], "preco_mensal_centavos": p["preco_mensal_centavos"]}
                   for id, p in PLANOS.items()],

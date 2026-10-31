@@ -41,6 +41,8 @@ Quando começar a cobrar, trocar para um plano pago do Render ou para a Railway 
 | `GEMINI_API_KEY` | do `.env` (análise de vídeos, chat e oportunidades) |
 | `DONOS` | do `.env` |
 | `SITE_URL` | o endereço do site na Vercel, com `https://` |
+| `ASAAS_API_KEY` | a chave do Asaas (Sandbox: `$aact_hmlg_…`) |
+| `ASAAS_WEBHOOK_TOKEN` | o mesmo token colado no webhook do Asaas (passo 5) |
 
 `REDIS_URL`, `DB_CONEXOES`, `AMBIENTE=producao` e `COOKIE_SEGURO=true` já vêm do `render.yaml`.
 `AMBIENTE` nunca pode ser `teste`: no modo teste a API aceita login sem senha.
@@ -55,3 +57,22 @@ Quando começar a cobrar, trocar para um plano pago do Render ou para a Railway 
 ### 4. Conferir
 - `https://<endereço-do-mecha-api>/api/saude` responde `{"ok":true}`.
 - No site da Vercel: entrar e fazer um garimpo.
+
+### 5. Asaas (assinaturas)
+1. **Sandbox primeiro:** criar conta em sandbox.asaas.com → Integrações → Chaves de API → gerar chave. Ela aparece uma vez só.
+   Vai no `ASAAS_API_KEY` (no `.env` e no Render). `ASAAS_AMBIENTE` fica `sandbox`.
+2. Inventar um token com 32 a 255 caracteres, sem espaços (ex.: `openssl rand -hex 32`). Vai no `ASAAS_WEBHOOK_TOKEN`.
+3. **Integrações → Webhooks → Adicionar:**
+   - URL: `https://<endereço-do-mecha-api>/api/asaas/webhook` (direto no Render: pela Vercel o proxy pede login e responde 401).
+   - Token de autenticação: o do passo 2.
+   - Versão da API: v3. Tipo de envio: **Sequencial** (a ordem importa: pago antes de estornado).
+   - Eventos: todos de **Cobranças** (`PAYMENT_*`) e de **Assinaturas** (`SUBSCRIPTION_*`).
+4. Testar: assinar no site com Pix → no Sandbox, abrir a cobrança e "Confirmar pagamento" → em segundos o plano vira Pro.
+   Cartões de teste do Sandbox: docs.asaas.com → "Testando pagamento com cartão de crédito".
+5. **Produção:** só depois do Sandbox validado. Conta aprovada no asaas.com, chave nova (`$aact_prod_…`),
+   `ASAAS_AMBIENTE=producao` e um webhook novo na conta de produção (a configuração do Sandbox não passa sozinha).
+
+**Atenção com o plano grátis do Render:** a API dorme depois de 15 minutos parada. O primeiro aviso do Asaas pode
+chegar com a API acordando e dar tempo esgotado; o Asaas tenta de novo, mas depois de 15 falhas seguidas ele **pausa a
+fila de webhooks** (reativar em Integrações → Webhooks). Antes de cobrar gente de verdade, passar a API para um plano
+que não dorme.

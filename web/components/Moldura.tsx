@@ -71,6 +71,12 @@ export function Moldura({ children }: { children: React.ReactNode }) {
   const visitante = pronto && !eu;
   const [buscaAberta, setBuscaAberta] = useState(false);
   const [planosAberto, setPlanosAberto] = useState(false);
+  // outras telas (Configurações → Plano e uso) abrem os planos com window.dispatchEvent(new Event("abrir-planos"))
+  useEffect(() => {
+    const abrir = () => setPlanosAberto(true);
+    window.addEventListener("abrir-planos", abrir);
+    return () => window.removeEventListener("abrir-planos", abrir);
+  }, []);
   const [sidebarAberta, setSidebarAberta] = useState(false);
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);

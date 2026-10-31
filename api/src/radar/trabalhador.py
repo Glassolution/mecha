@@ -8,7 +8,7 @@ import logging
 from arq import cron
 from arq.connections import RedisSettings
 
-from radar import db, garimpo, oportunidades, vitrine
+from radar import assinaturas, db, garimpo, oportunidades, vitrine
 from radar.armazenamento import garantir_balde
 from radar.coleta.apify_instagram import ApifyInstagram
 from radar.coleta.apify_tiktok import ApifyTikTok
@@ -50,10 +50,23 @@ async def abastecer_vitrine(ctx):
     await vitrine.abastecer(ctx["coletores"])
 
 
+async def processar_evento_asaas(ctx, evento_id: str):
+    await assinaturas.processar_evento(evento_id)
+
+
+async def cuidar_assinaturas(ctx):
+    # avisos que não entraram na fila (Redis fora) e quem passou do período pago
+    await assinaturas.processar_pendentes()
+    await assinaturas.encerrar_vencidas()
+
+
 class Trabalhador:
-    functions = [rodar_garimpo, analisar_oportunidades]
-    # de hora em hora; só busca quando a última vitrine tem 7 dias ou mais
-    cron_jobs = [cron(abastecer_vitrine, minute=7, run_at_startup=True, unique=True)]
+    functions = [rodar_garimpo, analisar_oportunidades, processar_evento_asaas]
+    cron_jobs = [
+        # de hora em hora; só busca quando a última vitrine tem 7 dias ou mais
+        cron(abastecer_vitrine, minute=7, run_at_startup=True, unique=True),
+        cron(cuidar_assinaturas, minute=set(range(0, 60, 5)), unique=True),
+    ]
     on_startup = ao_iniciar
     on_shutdown = ao_parar
     redis_settings = RedisSettings.from_dsn(config().redis_url)

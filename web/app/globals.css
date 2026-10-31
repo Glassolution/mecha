@@ -1533,6 +1533,8 @@ button.fonte:hover { background: var(--surface); }
 .cfg-uso-barra i { display: block; height: 100%; background: var(--destaque); transform-origin: left; transition: transform .8s var(--suave-curva); }
 .cfg-uso span { font-size: 13px; color: var(--ink-3); white-space: nowrap; }
 .cfg-uso b { color: var(--ink); }
+.cfg-assinatura { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.cfg-assinatura a.bt1 { display: inline-flex; align-items: center; text-decoration: none; }
 .cfg-bt { height: 36px; padding: 0 16px; font-size: 13.5px; background: rgba(255,255,255,.07); }
 .cfg-bt:hover { background: rgba(255,255,255,.11); }
 

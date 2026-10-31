@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from radar import db
-from radar.rotas import admin, biblioteca, conta, garimpos, publico, salvos
+from radar.rotas import admin, assinatura, biblioteca, conta, garimpos, publico, salvos
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -21,7 +21,7 @@ async def vida(app: FastAPI):
 
 
 app = FastAPI(title="Radar", lifespan=vida, docs_url=None, redoc_url=None, openapi_url=None)
-for modulo in (conta, garimpos, biblioteca, salvos, publico, admin):
+for modulo in (conta, garimpos, biblioteca, salvos, publico, admin, assinatura):
     app.include_router(modulo.r)
 
 

@@ -123,3 +123,17 @@
  .planoEnvelope .plano,.ilustracao,.ilustracao > img,.ilustracaoGratuito,.ilustracaoGratuito > img,.acao:active { transform:none !important; }
  .faixaPlano { transform:none; }
 }
+
+/* Assinatura pelo Asaas */
+.assinar { display:grid; gap:16px; margin:22px 0 4px; }
+.formas { display:flex; flex-wrap:wrap; gap:10px; margin:0; padding:0; border:0; }
+.formas legend, .campo > span { margin-bottom:8px; color:#49543e; font-size:15px; font-weight:500; }
+.formas label { display:inline-flex; align-items:center; gap:8px; min-height:44px; padding:10px 16px; border:1px solid #e3e1d6; border-radius:999px; background:#fff; color:#3b3a33; font-size:15px; cursor:pointer; }
+.formas label:has(input:checked) { border-color:#191d16; box-shadow:inset 0 0 0 1px #191d16; }
+.formas input { accent-color:#191d16; }
+.campo { display:grid; }
+.campo input { min-height:44px; padding:10px 14px; border:1px solid #e3e1d6; border-radius:10px; background:#fff; color:#262621; font:inherit; font-size:16px; }
+.campo input:focus-visible { outline:2px solid var(--principal,#ddc34f); outline-offset:2px; }
+.campo small { margin-top:6px; color:#77735f; font-size:13px; line-height:1.5; }
+.aviso { margin:0; color:#625b42; font-size:14px; line-height:1.6; }
+.falha { margin:0; padding:10px 12px; border-radius:8px; background:#fdecea; color:#8a2c22; font-size:14px; line-height:1.5; }

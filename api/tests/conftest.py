@@ -35,7 +35,7 @@ async def limpo():
     await db.executar(
         """truncate videos, metricas_hist, busca_cache, contas, sessoes, espacos, membros, garimpos,
            garimpo_videos, colecoes, salvos, uso, avaliacoes, video_saas, saas, analises_video, conversas_video,
-           comentarios_video, oportunidades_garimpo cascade"""
+           comentarios_video, oportunidades_garimpo, assinaturas, pagamentos, asaas_eventos cascade"""
     )
     await fluxo.redis().flushdb()
     yield

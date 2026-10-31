@@ -25,6 +25,12 @@ services:
         sync: false
       - key: SITE_URL
         sync: false
+      - key: ASAAS_API_KEY
+        sync: false
+      - key: ASAAS_WEBHOOK_TOKEN
+        sync: false
+      - key: ASAAS_AMBIENTE
+        value: producao  # sandbox só com uma chave $aact_hmlg_
       - key: REDIS_URL
         fromService:
           type: keyvalue

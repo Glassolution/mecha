@@ -133,6 +133,18 @@ export type Eu = {
   meu_saas: { nome: string; tipo: "saas" | "app" | "ecommerce" | "infoproduto" | "servico" | "marketplace" | "conteudo" | "outro" | null; link: string | null; o_que_faz: string | null } | null;
   plano: { id: string; nome: string; garimpos: number };
   uso: { garimpos: number; planos_ideia: number };
+  /** a assinatura mais recente (Asaas); o plano só muda quando o Asaas confirma o pagamento */
+  assinatura: Assinatura | null;
+};
+
+export type Assinatura = {
+  id: string;
+  plano: "pro" | "agencia";
+  forma: "pix" | "cartao";
+  status: "aguardando" | "ativa" | "atrasada" | "cancelada" | "reembolsada" | "encerrada";
+  pago_ate: string | null;
+  link_pagamento: string | null;
+  pode_reembolsar: boolean;
 };
 
 export type Colecao = { id: string; nome: string; itens: number; capas: string[] | null };

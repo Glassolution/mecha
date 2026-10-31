@@ -112,6 +112,20 @@ Respostas novas da conversa são reveladas progressivamente no navegador, com cu
 
 O botão “Contexto” do cabeçalho da conversa foi substituído por “Salvar análise”. Ele usa o seletor de pastas e guarda uma referência `salvos.item_tipo = analise`, com o ID do vídeo, separada do vídeo salvo. A conversa já persistida no espaço é reaberta sem gerar nova resposta; não é uma cópia congelada. Salvos mostra filtro e cartões de Análises, com resumo e link direto à conversa, preservando a pasta como destino de volta. A API só permite salvar análises existentes no próprio espaço, incluindo as análises estruturadas anteriores. Remover da pasta não apaga o histórico. A exportação CSV inclui o texto da análise na coluna Ideia.
 
+## Assinaturas pelo Asaas (31/10/2026)
+
+O Asaas substitui o Stripe. Fluxo: no modal de planos, a pessoa escolhe Pix ou cartão e informa CPF ou CNPJ (o Asaas exige; conferido com os dígitos verificadores, inclusive o CNPJ alfanumérico). A API cria o cliente (guardado em `espacos.asaas_cliente`) e a assinatura mensal (`nextDueDate` = hoje em Brasília, `externalReference` = id da nossa assinatura) e manda a pessoa para a fatura hospedada do Asaas, então o site nunca vê dados de cartão. Sem boleto: demora até 3 dias para compensar.
+
+- **Acesso só por aviso do Asaas.** `PAYMENT_CONFIRMED` ou `PAYMENT_RECEIVED` muda `espacos.plano` e estende `pago_ate` até 1 mês depois do vencimento pago + 3 dias de tolerância (`TOLERANCIA_DIAS`). A volta do navegador nunca libera nada.
+- **Webhook** em `POST /api/asaas/webhook`, direto no Render. Confere o cabeçalho `asaas-access-token` (comparação em tempo constante), grava em `asaas_eventos` com o id do evento como chave (reenvio não duplica), responde 200 e o trabalhador processa (`processar_evento_asaas`). Uma rotina de 5 em 5 minutos pega avisos que não entraram na fila e encerra quem passou de `pago_ate`.
+- **Status:** aguardando → ativa ⇄ atrasada (`PAYMENT_OVERDUE`); cancelada (não renova, acesso até `pago_ate`); reembolsada (estorno total ou chargeback: acesso cortado na hora); encerrada (passou de `pago_ate`). Atrasada que passa da tolerância é removida no Asaas para parar de gerar cobranças.
+- **Cancelar:** remove a assinatura no Asaas (as cobranças não pagas somem junto); o plano fica até `pago_ate`.
+- **Reembolso:** nos primeiros 7 dias depois do primeiro pagamento (`DIAS_ARREPENDIMENTO`, art. 49 do CDC), a própria pessoa pede em Configurações → Plano e uso, e tudo o que ela pagou é estornado. Depois disso, só o admin, pelo botão "Reembolsar" na aba Usuários do painel (estorna o último pagamento). Os dois cancelam a assinatura e voltam o espaço ao Grátis na hora.
+- **Troca de plano** com assinatura ativa: muda o valor das próximas cobranças (`updatePendingPayments`) e o plano na hora, sem cobrança proporcional.
+- **Pedido sem resposta do Asaas** (timeout): a assinatura local fica sem `asaas_assinatura`; a próxima tentativa procura pelo `externalReference` antes de criar outra, como a documentação do Asaas pede.
+- **Painel admin:** com a chave configurada, faturamento recebido no período (já sem estornos), MRR e assinaturas ativas vêm de `pagamentos` e `assinaturas`. Sem a chave, continua "não configurado".
+- Sem `ASAAS_API_KEY`, `/api/planos` diz `contratacao_disponivel: false` e o modal volta ao "em breve".
+
 ## Como rodar no Mac
 
 `./rodar.sh` na pasta do projeto liga banco, fila, servidor, trabalhador e site. Abra http://localhost:3000. Ctrl+C desliga.
@@ -128,7 +142,7 @@ O botão “Contexto” do cabeçalho da conversa foi substituído por “Salvar
 - [ ] Mover os dados para o banco do Supabase (precisa da senha do banco no .env).
 - [ ] Endereços de volta do login no Supabase (Authentication → URL Configuration) com o domínio de verdade.
 - [ ] Hospedagem: Vercel (site), Railway ou Fly (API e fila), Neon ou Supabase (banco), Cloudflare R2 (capas).
-- [ ] Stripe.
+- [x] Assinaturas pelo Asaas (Sandbox). Falta: testar de ponta a ponta no Sandbox, conta de produção aprovada, webhook de produção e API num plano do Render que não dorme.
 - [ ] Gerar um token novo da Apify (o atual passou pelo chat).
 - [ ] Gerar uma chave nova do Gemini (a atual passou pelo chat) e trocar `GEMINI_API_KEY` no `.env`.
 - [ ] Nome definitivo, INPI e domínio; trocar a logo provisória.

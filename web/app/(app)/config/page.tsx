@@ -243,9 +243,7 @@ function PainelConfig({ eu }: { eu: Eu }) {
                   <span><b>{eu.uso.garimpos}</b> de {eu.plano.garimpos}</span>
                 </div>
               </Linha>
-              <Linha titulo="Assinatura">
-                <span className="cfg-valor fraco">A assinatura chega em breve.</span>
-              </Linha>
+              <SecaoAssinatura eu={eu} />
             </>
           )}
 
@@ -267,6 +265,72 @@ function PainelConfig({ eu }: { eu: Eu }) {
         </div>
       </section>
     </div>
+  );
+}
+
+const STATUS_ASSINATURA: Record<NonNullable<Eu["assinatura"]>["status"], string> = {
+  aguardando: "Aguardando o pagamento",
+  ativa: "Ativa",
+  atrasada: "Pagamento atrasado",
+  cancelada: "Cancelada",
+  reembolsada: "Reembolsada",
+  encerrada: "Encerrada",
+};
+
+function SecaoAssinatura({ eu }: { eu: Eu }) {
+  const { recarregarEu, avisar } = useApp();
+  const [ocupado, setOcupado] = useState<"cancelar" | "reembolsar" | null>(null);
+  const a = eu.assinatura;
+  const ate = a?.pago_ate ? new Date(a.pago_ate).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : null;
+  const viva = a && (a.status === "aguardando" || a.status === "ativa" || a.status === "atrasada");
+  const comAcesso = a && ate && a.pago_ate && new Date(a.pago_ate) > new Date() && a.status !== "reembolsada";
+
+  async function acao(tipo: "cancelar" | "reembolsar") {
+    const pergunta = tipo === "cancelar"
+      ? `Cancelar a assinatura? ${comAcesso ? `Você continua com o plano até ${ate}.` : ""}`
+      : "Pedir o reembolso? O valor volta pelo mesmo meio de pagamento e o plano Grátis volta na hora.";
+    if (!confirm(pergunta)) return;
+    setOcupado(tipo);
+    try {
+      await api(`/api/assinatura/${tipo}`, { method: "POST" });
+      await recarregarEu();
+      avisar(tipo === "cancelar" ? "Assinatura cancelada." : "Reembolso pedido. O valor volta em alguns dias.");
+    } catch (erro) {
+      avisar((erro as Error).message);
+    } finally {
+      setOcupado(null);
+    }
+  }
+
+  return (
+    <>
+      <Linha titulo="Assinatura" dica={a ? `Pagamento por ${a.forma === "pix" ? "Pix" : "cartão"}, pelo Asaas.` : undefined}>
+        <div className="cfg-assinatura">
+          {!a || a.status === "encerrada" || a.status === "reembolsada" ? (
+            <>
+              {a && <span className="cfg-valor fraco">{STATUS_ASSINATURA[a.status]}</span>}
+              <button type="button" className="bt1" onClick={() => window.dispatchEvent(new Event("abrir-planos"))}>Ver planos</button>
+            </>
+          ) : (
+            <span className="cfg-valor">
+              {STATUS_ASSINATURA[a.status]}
+              {a.status === "cancelada" && comAcesso && ` · plano até ${ate}`}
+              {(a.status === "ativa" || a.status === "atrasada") && ate && ` · acesso pago até ${ate}`}
+            </span>
+          )}
+          {a?.status === "aguardando" && a.link_pagamento && <a className="bt1" href={a.link_pagamento}>Continuar pagamento</a>}
+          {a?.status === "cancelada" && <button type="button" className="bt2" onClick={() => window.dispatchEvent(new Event("abrir-planos"))}>Assinar de novo</button>}
+        </div>
+      </Linha>
+      {(viva || a?.pode_reembolsar) && (
+        <Linha titulo="Gerenciar" dica={a?.pode_reembolsar ? "Nos primeiros 7 dias depois do primeiro pagamento, o reembolso é integral." : undefined}>
+          <div className="cfg-assinatura">
+            {viva && <button type="button" className="bt2" onClick={() => acao("cancelar")} disabled={!!ocupado}>{ocupado === "cancelar" ? "Cancelando…" : "Cancelar assinatura"}</button>}
+            {a?.pode_reembolsar && <button type="button" className="bt3" onClick={() => acao("reembolsar")} disabled={!!ocupado}>{ocupado === "reembolsar" ? "Pedindo…" : "Pedir reembolso"}</button>}
+          </div>
+        </Linha>
+      )}
+    </>
   );
 }
 
