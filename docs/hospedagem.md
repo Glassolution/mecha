@@ -38,6 +38,7 @@ Quando começar a cobrar, trocar para um plano pago do Render ou para a Railway 
 | `SUPABASE_URL` | do `.env` |
 | `SUPABASE_SECRET_KEY` | a chave secreta (passo 1) |
 | `APIFY_TOKEN` | do `.env` |
+| `GEMINI_API_KEY` | do `.env` (análise de vídeos, chat e oportunidades) |
 | `DONOS` | do `.env` |
 | `SITE_URL` | o endereço do site na Vercel, com `https://` |
 
