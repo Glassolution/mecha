@@ -280,7 +280,7 @@ async def test_trocar_de_plano_muda_o_valor_das_proximas(cliente, falso):
     await assinaturas.processar_pendentes()
     r = await cliente.post("/api/assinatura", json={"plano": "agencia", "forma": "pix", "documento": CPF})
     assert r.json() == {"url": None, "plano": "agencia"}
-    assert ("PUT", "/subscriptions/sub_1", {"value": 79.9, "description": "Mecha · plano Agência",
+    assert ("PUT", "/subscriptions/sub_1", {"value": 79.9, "description": "Wae · plano Agência",
                                              "updatePendingPayments": True}) in falso.pedidos
     assert await _plano(espaco) == "agencia"
     assert (await cliente.post("/api/assinatura", json={"plano": "agencia", "forma": "pix", "documento": CPF})).status_code == 409
