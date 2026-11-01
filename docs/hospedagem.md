@@ -67,10 +67,14 @@ Quando começar a cobrar, trocar para um plano pago do Render ou para a Railway 
    - Token de autenticação: o do passo 2.
    - Versão da API: v3. Tipo de envio: **Sequencial** (a ordem importa: pago antes de estornado).
    - Eventos: todos de **Cobranças** (`PAYMENT_*`) e de **Assinaturas** (`SUBSCRIPTION_*`).
-4. Testar: assinar no site com Pix → no Sandbox, abrir a cobrança e "Confirmar pagamento" → em segundos o plano vira Pro.
-   Cartões de teste do Sandbox: docs.asaas.com → "Testando pagamento com cartão de crédito".
+4. Testar: assinar no site com Pix → o QR Code aparece no próprio modal → no Sandbox, abrir a cobrança e
+   "Confirmar pagamento" → em segundos o modal fecha e o plano vira Pro.
+   Cartão: preencher no modal com um cartão de teste do Sandbox (docs.asaas.com → "Testando pagamento com cartão de
+   crédito"); o Asaas cobra na hora e o plano vira Pro quando o aviso chega.
 5. **Produção:** só depois do Sandbox validado. Conta aprovada no asaas.com, chave nova (`$aact_prod_…`),
    `ASAAS_AMBIENTE=producao` e um webhook novo na conta de produção (a configuração do Sandbox não passa sozinha).
+   Pedir ao atendimento do Asaas a **tokenização** na conta de produção: sem ela, trocar de plano quem paga no
+   cartão pode ser recusado.
 
 **Atenção com o plano grátis do Render:** a API dorme depois de 15 minutos parada. O primeiro aviso do Asaas pode
 chegar com a API acordando e dar tempo esgotado; o Asaas tenta de novo, mas depois de 15 falhas seguidas ele **pausa a

@@ -126,6 +126,18 @@ O Asaas substitui o Stripe. Fluxo: no modal de planos, a pessoa escolhe Pix ou c
 - **Painel admin:** com a chave configurada, faturamento recebido no período (já sem estornos), MRR e assinaturas ativas vêm de `pagamentos` e `assinaturas`. Sem a chave, continua "não configurado".
 - Sem `ASAAS_API_KEY`, `/api/planos` diz `contratacao_disponivel: false` e o modal volta ao "em breve".
 
+### Checkout transparente (31/10/2026)
+
+A pessoa paga sem sair do site; a fatura hospedada do Asaas fica só de reserva (link "Continuar pagamento" em Configurações, para Pix).
+
+- **Pix:** a API cria a assinatura e devolve o QR Code e o copia e cola da primeira cobrança (`GET /payments/{id}/pixQrCode`). `GET /api/assinatura/pix` mostra de novo o Pix que está aguardando. Os meses seguintes continuam chegando por e-mail pelo Asaas.
+- **Cartão:** o formulário do modal manda número, validade, CVV, nome, CEP, número do endereço e celular para a nossa API, que repassa na hora ao Asaas (`POST /subscriptions` com `creditCard`, `creditCardHolderInfo` e `remoteIp`). Nada do cartão é gravado nem vai para o log. Com `nextDueDate` hoje, o Asaas cobra na hora; recusado volta 400 e a assinatura local é apagada. Conferimos antes o número (Luhn), validade, CVV, CEP e telefone, para não gastar tentativa.
+- **IP de quem paga:** o Asaas exige o IP do aparelho, não o do servidor. A Vercel põe o IP real no começo do `X-Forwarded-For`; usamos o primeiro da lista.
+- **Teste de cartão roubado:** no máximo 5 tentativas com cartão por espaço em 24 horas (`tentativas_cartao`, sem dado do cartão).
+- **Sem cobrança dupla:** se já existe uma assinatura com cartão aguardando e a primeira cobrança já foi feita (ou está em análise), um novo clique só responde "processando".
+- **A tela espera o aviso:** depois do Pix ou do cartão, o modal confere `/api/eu` de 5 em 5 segundos e fecha sozinho quando o plano é liberado. O plano continua mudando só pelo webhook.
+- **Atenção:** trocar o valor de uma assinatura com cartão (troca de plano) pode exigir a tokenização habilitada na conta de produção do Asaas (pedir ao atendimento).
+
 ## Como rodar no Mac
 
 `./rodar.sh` na pasta do projeto liga banco, fila, servidor, trabalhador e site. Abra http://localhost:3000. Ctrl+C desliga.
@@ -142,7 +154,7 @@ O Asaas substitui o Stripe. Fluxo: no modal de planos, a pessoa escolhe Pix ou c
 - [ ] Mover os dados para o banco do Supabase (precisa da senha do banco no .env).
 - [ ] Endereços de volta do login no Supabase (Authentication → URL Configuration) com o domínio de verdade.
 - [ ] Hospedagem: Vercel (site), Railway ou Fly (API e fila), Neon ou Supabase (banco), Cloudflare R2 (capas).
-- [x] Assinaturas pelo Asaas (Sandbox). Falta: testar de ponta a ponta no Sandbox, conta de produção aprovada, webhook de produção e API num plano do Render que não dorme.
+- [x] Assinaturas pelo Asaas (Sandbox), com checkout transparente (Pix e cartão no próprio site). Falta: testar o cartão com os cartões de teste do Sandbox, pedir ao Asaas a tokenização em produção (troca de plano no cartão), testar de ponta a ponta no Sandbox, conta de produção aprovada, webhook de produção e API num plano do Render que não dorme.
 - [ ] Gerar um token novo da Apify (o atual passou pelo chat).
 - [ ] Gerar uma chave nova do Gemini (a atual passou pelo chat) e trocar `GEMINI_API_KEY` no `.env`.
 - [ ] Nome definitivo, INPI e domínio; trocar a logo provisória.

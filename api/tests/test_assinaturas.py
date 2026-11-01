@@ -12,6 +12,9 @@ from radar.main import app
 
 TOKEN = "token-de-teste-com-mais-de-32-caracteres-123"
 CPF = "529.982.247-25"  # CPF de exemplo válido
+# cartão de teste do Sandbox do Asaas (passa no Luhn)
+CARTAO = {"titular": "Pessoa Teste", "numero": "5162 3062 1937 8829", "validade": "05/30", "cvv": "318",
+          "cep": "01310-100", "numero_endereco": "100", "telefone": "(11) 98765-4321"}
 
 
 class AsaasFalso:
@@ -19,6 +22,7 @@ class AsaasFalso:
         self.pedidos: list[tuple[str, str, dict | None]] = []
         self.assinaturas: dict[str, dict] = {}
         self.falhar: dict[str, asaas.ErroAsaas] = {}
+        self.status_cobranca = "PENDING"
 
     async def pedir(self, metodo, caminho, json=None, params=None):
         self.pedidos.append((metodo, caminho, json))
@@ -38,8 +42,11 @@ class AsaasFalso:
             return {"data": [s for s in self.assinaturas.values() if s["externalReference"] == ref]}
         if metodo == "GET" and caminho.endswith("/payments"):
             sid = caminho.split("/")[2]
-            return {"data": [{"id": f"pay_{sid}", "status": "PENDING", "dueDate": "2026-10-31",
+            return {"data": [{"id": f"pay_{sid}", "status": self.status_cobranca, "dueDate": "2026-10-31",
                               "invoiceUrl": f"https://sandbox.asaas.com/i/{sid}"}]}
+        if metodo == "GET" and caminho.endswith("/pixQrCode"):
+            pid = caminho.split("/")[2]
+            return {"encodedImage": "iVBOR", "payload": f"pix-copia-e-cola-{pid}", "expirationDate": "2027-10-31 23:59:59"}
         return {}
 
 
@@ -86,11 +93,12 @@ def test_acesso_vai_um_mes_alem_do_vencimento_com_tolerancia():
     assert assinaturas.acesso_ate(date(2026, 12, 15)).date() == date(2027, 1, 18)
 
 
-async def test_assinar_devolve_fatura_sem_liberar_o_plano(cliente, falso):
+async def test_assinar_com_pix_devolve_o_qr_sem_liberar_o_plano(cliente, falso):
     espaco = await _espaco(cliente)
     r = await cliente.post("/api/assinatura", json={"plano": "pro", "forma": "pix", "documento": CPF})
     assert r.status_code == 200
-    assert r.json()["url"] == "https://sandbox.asaas.com/i/sub_1"
+    assert r.json()["pix"]["copia_e_cola"] == "pix-copia-e-cola-pay_sub_1"
+    assert r.json()["pix"]["imagem"] == "iVBOR"
     criada = falso.assinaturas["sub_1"]
     assert criada["billingType"] == "PIX" and criada["value"] == 49.9 and criada["cycle"] == "MONTHLY"
     assert await _plano(espaco) == "gratis"  # só o aviso do Asaas libera
@@ -98,10 +106,63 @@ async def test_assinar_devolve_fatura_sem_liberar_o_plano(cliente, falso):
     assert eu["assinatura"]["status"] == "aguardando"
     assert eu["assinatura"]["link_pagamento"] == "https://sandbox.asaas.com/i/sub_1"
 
-    # clicar de novo reaproveita o pedido em aberto
+    # clicar de novo (ou reabrir a tela) reaproveita o pedido em aberto
     r = await cliente.post("/api/assinatura", json={"plano": "pro", "forma": "pix", "documento": CPF})
-    assert r.json()["url"] == "https://sandbox.asaas.com/i/sub_1"
+    assert r.json()["pix"]["copia_e_cola"] == "pix-copia-e-cola-pay_sub_1"
+    assert (await cliente.get("/api/assinatura/pix")).json()["pix"]["copia_e_cola"] == "pix-copia-e-cola-pay_sub_1"
     assert len(falso.assinaturas) == 1
+
+
+async def test_assinar_com_cartao_cobra_direto_pelo_asaas(cliente, falso):
+    espaco = await _espaco(cliente)
+    r = await cliente.post("/api/assinatura", headers={"x-forwarded-for": "200.150.10.5, 76.76.21.21"},
+                           json={"plano": "pro", "forma": "cartao", "documento": CPF, "cartao": CARTAO})
+    assert r.status_code == 200
+    assert r.json() == {"forma": "cartao", "situacao": "processando"}
+    criada = falso.assinaturas["sub_1"]
+    assert criada["billingType"] == "CREDIT_CARD" and criada["remoteIp"] == "200.150.10.5"
+    assert criada["creditCard"] == {"holderName": "Pessoa Teste", "number": "5162306219378829",
+                                    "expiryMonth": "05", "expiryYear": "2030", "ccv": "318"}
+    assert criada["creditCardHolderInfo"]["cpfCnpj"] == "52998224725"
+    assert criada["creditCardHolderInfo"]["postalCode"] == "01310100"
+    assert await _plano(espaco) == "gratis"  # só o aviso do Asaas libera
+    # nada do cartão fica no banco
+    linha = await db.um("select * from assinaturas")
+    assert "5162306219378829" not in str(linha) and linha["link_pagamento"] is None
+
+    # cobrado e esperando o aviso: clicar de novo não cobra outra vez
+    falso.status_cobranca = "CONFIRMED"
+    r = await cliente.post("/api/assinatura", json={"plano": "pro", "forma": "cartao", "documento": CPF, "cartao": CARTAO})
+    assert r.json()["situacao"] == "processando"
+    assert len(falso.assinaturas) == 1
+
+
+async def test_cartao_recusado_nao_deixa_pedido(cliente, falso):
+    await _espaco(cliente)
+    falso.falhar["POST subscriptions"] = asaas.ErroAsaas(400, "Transação não autorizada.")
+    r = await cliente.post("/api/assinatura", json={"plano": "pro", "forma": "cartao", "documento": CPF, "cartao": CARTAO})
+    assert r.status_code == 422 and r.json()["mensagem"] == "Transação não autorizada."
+    assert await db.um("select * from assinaturas") is None
+
+
+async def test_cartao_invalido_nem_chega_no_asaas(cliente, falso):
+    await _espaco(cliente)
+    for errado in ({"numero": "5162 3062 1937 8820"}, {"validade": "01/20"}, {"cvv": "1"}, {"cep": "123"}):
+        r = await cliente.post("/api/assinatura",
+                               json={"plano": "pro", "forma": "cartao", "documento": CPF, "cartao": {**CARTAO, **errado}})
+        assert r.status_code == 422
+    assert (await cliente.post("/api/assinatura", json={"plano": "pro", "forma": "cartao", "documento": CPF})).status_code == 422
+    assert falso.pedidos == []
+
+
+async def test_limite_de_tentativas_com_cartao(cliente, falso):
+    await _espaco(cliente)
+    for _ in range(assinaturas.LIMITE_TENTATIVAS_CARTAO):
+        falso.falhar["POST subscriptions"] = asaas.ErroAsaas(400, "Transação não autorizada.")
+        await cliente.post("/api/assinatura", json={"plano": "pro", "forma": "cartao", "documento": CPF, "cartao": CARTAO})
+    r = await cliente.post("/api/assinatura", json={"plano": "pro", "forma": "cartao", "documento": CPF, "cartao": CARTAO})
+    assert r.status_code == 429
+    assert len([p for p in falso.pedidos if p[:2] == ("POST", "/subscriptions")]) == assinaturas.LIMITE_TENTATIVAS_CARTAO
 
 
 async def test_documento_invalido_nem_chega_no_asaas(cliente, falso):
@@ -121,7 +182,7 @@ async def test_sem_resposta_do_asaas_recupera_pela_referencia(cliente, falso):
     # o Asaas criou mesmo assim: a nova tentativa acha pela referência em vez de criar outra
     falso.assinaturas["sub_9"] = {"id": "sub_9", "externalReference": str(pendente["id"])}
     r = await cliente.post("/api/assinatura", json={"plano": "pro", "forma": "pix", "documento": CPF})
-    assert r.json()["url"] == "https://sandbox.asaas.com/i/sub_9"
+    assert r.json()["pix"]["copia_e_cola"] == "pix-copia-e-cola-pay_sub_9"
     assert len([p for p in falso.pedidos if p[:2] == ("POST", "/subscriptions")]) == 1
 
 
@@ -148,7 +209,7 @@ async def test_pagamento_confirmado_libera_e_aviso_repetido_nao_duplica(cliente,
 
 async def test_reembolso_pela_pessoa_estorna_e_volta_ao_gratis(cliente, falso):
     espaco = await _espaco(cliente)
-    await cliente.post("/api/assinatura", json={"plano": "pro", "forma": "cartao", "documento": CPF})
+    await cliente.post("/api/assinatura", json={"plano": "pro", "forma": "cartao", "documento": CPF, "cartao": CARTAO})
     await _aviso(cliente, "PAYMENT_CONFIRMED", "evt_1", **_pagamento())
     await assinaturas.processar_pendentes()
     r = await cliente.post("/api/assinatura/reembolsar")
@@ -204,7 +265,7 @@ async def test_atrasada_depois_da_tolerancia_perde_o_acesso(cliente, falso):
 
 async def test_chargeback_corta_na_hora(cliente, falso):
     espaco = await _espaco(cliente)
-    await cliente.post("/api/assinatura", json={"plano": "pro", "forma": "cartao", "documento": CPF})
+    await cliente.post("/api/assinatura", json={"plano": "pro", "forma": "cartao", "documento": CPF, "cartao": CARTAO})
     await _aviso(cliente, "PAYMENT_CONFIRMED", "evt_1", **_pagamento())
     await _aviso(cliente, "PAYMENT_CHARGEBACK_REQUESTED", "evt_2", **_pagamento(status="CHARGEBACK_REQUESTED"))
     await assinaturas.processar_pendentes()

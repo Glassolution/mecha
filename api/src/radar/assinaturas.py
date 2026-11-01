@@ -24,6 +24,7 @@ VIVAS = ("aguardando", "ativa", "atrasada")
 PAGAVEIS = ("pro", "agencia")
 FORMAS = {"pix": "PIX", "cartao": "CREDIT_CARD"}
 STATUS_PAGO = ("CONFIRMED", "RECEIVED")
+LIMITE_TENTATIVAS_CARTAO = 5  # por espaço, em 24 horas
 # estorno total ou contestação no cartão: o acesso acaba na hora
 CORTAM_ACESSO = ("PAYMENT_REFUNDED", "PAYMENT_CHARGEBACK_REQUESTED", "PAYMENT_CHARGEBACK_DISPUTE",
                  "PAYMENT_AWAITING_CHARGEBACK_REVERSAL")
@@ -118,11 +119,93 @@ async def _apagar_no_asaas(asaas_assinatura: str | None) -> None:
             raise
 
 
-async def _link_do_primeiro_pagamento(asaas_assinatura: str) -> str | None:
+async def _primeiro_pagamento(asaas_assinatura: str) -> dict | None:
+    """A cobrança mais antiga da assinatura (a do primeiro mês)."""
     r = await asaas.pedir("GET", f"/subscriptions/{asaas_assinatura}/payments")
-    pendentes = [p for p in r.get("data") or [] if p.get("status") in ("PENDING", "OVERDUE")]
-    pendentes.sort(key=lambda p: p.get("dueDate") or "")
-    return pendentes[0].get("invoiceUrl") if pendentes else None
+    cobrancas = sorted(r.get("data") or [], key=lambda p: p.get("dueDate") or "")
+    return cobrancas[0] if cobrancas else None
+
+
+async def _pix(a: dict) -> dict:
+    """QR Code e copia e cola do primeiro pagamento, para pagar sem sair do site."""
+    p = await _primeiro_pagamento(a["asaas_assinatura"])
+    if not p or p.get("status") not in ("PENDING", "OVERDUE"):
+        raise HTTPException(502, "A cobrança Pix ainda não ficou pronta. Tente de novo em 1 minuto.")
+    qr = await asaas.pedir("GET", f"/payments/{p['id']}/pixQrCode")
+    if not qr.get("payload"):
+        raise HTTPException(502, "A cobrança Pix ainda não ficou pronta. Tente de novo em 1 minuto.")
+    # a fatura do Asaas fica de reserva (Configurações → Continuar pagamento)
+    await db.executar("update assinaturas set link_pagamento = %s where id = %s", (p.get("invoiceUrl"), a["id"]))
+    return {"forma": "pix", "pix": {"imagem": qr.get("encodedImage"), "copia_e_cola": qr["payload"],
+                                    "expira_em": qr.get("expirationDate")}}
+
+
+async def pix_pendente(espaco_id) -> dict:
+    a = await db.um("select * from assinaturas where espaco_id = %s and status = 'aguardando' and forma = 'pix'",
+                    (espaco_id,))
+    if not a or not a["asaas_assinatura"]:
+        raise HTTPException(404, "Você não tem um Pix aguardando pagamento.")
+    try:
+        return await _pix(a)
+    except ErroAsaas as erro:
+        raise _erro_http(erro) from erro
+
+
+# ---------- cartão (checkout transparente) ----------
+# Os dados do cartão só passam por aqui a caminho do Asaas: nunca são gravados nem vão para o log.
+
+def _digitos(valor: str | None) -> str:
+    return re.sub(r"\D", "", valor or "")
+
+
+def _luhn(numero: str) -> bool:
+    soma = 0
+    for i, c in enumerate(reversed(numero)):
+        n = int(c) * (2 if i % 2 else 1)
+        soma += n - 9 if n > 9 else n
+    return soma % 10 == 0
+
+
+def dados_do_cartao(cartao: dict, e: dict, documento: str) -> dict:
+    """Confere o que a pessoa digitou e monta creditCard e creditCardHolderInfo como o Asaas pede."""
+    numero = _digitos(cartao.get("numero"))
+    if not 13 <= len(numero) <= 19 or not _luhn(numero):
+        raise HTTPException(422, "Confira o número do cartão.")
+    validade = re.fullmatch(r"\s*(\d{1,2})\s*/\s*(\d{2}|\d{4})\s*", cartao.get("validade") or "")
+    if not validade or not 1 <= int(validade[1]) <= 12:
+        raise HTTPException(422, "Confira a validade do cartão (mês/ano).")
+    mes, ano = int(validade[1]), int(validade[2]) + (2000 if len(validade[2]) == 2 else 0)
+    if (ano, mes) < (hoje().year, hoje().month):
+        raise HTTPException(422, "Esse cartão está vencido.")
+    cvv = _digitos(cartao.get("cvv"))
+    if len(cvv) not in (3, 4):
+        raise HTTPException(422, "Confira o código de segurança do cartão.")
+    titular = (cartao.get("titular") or "").strip()
+    if len(titular) < 3:
+        raise HTTPException(422, "Escreva o nome como está impresso no cartão.")
+    cep, telefone = _digitos(cartao.get("cep")), _digitos(cartao.get("telefone"))
+    if len(cep) != 8:
+        raise HTTPException(422, "Confira o CEP.")
+    if len(telefone) not in (10, 11):
+        raise HTTPException(422, "Confira o telefone com DDD.")
+    numero_endereco = (cartao.get("numero_endereco") or "").strip()
+    if not numero_endereco:
+        raise HTTPException(422, "Informe o número do endereço (ou S/N).")
+    return {
+        "creditCard": {"holderName": titular, "number": numero, "expiryMonth": f"{mes:02d}",
+                       "expiryYear": str(ano), "ccv": cvv},
+        "creditCardHolderInfo": {"name": titular, "email": e["email"], "cpfCnpj": documento, "postalCode": cep,
+                                 "addressNumber": numero_endereco[:20], "phone": telefone},
+    }
+
+
+async def _contar_tentativa(espaco_id) -> None:
+    """Limita as tentativas com cartão: sem isso, a tela vira um teste de cartão roubado."""
+    r = await db.um("select count(*) as n from tentativas_cartao where espaco_id = %s and criado_em > now() - interval '1 day'",
+                    (espaco_id,))
+    if r["n"] >= LIMITE_TENTATIVAS_CARTAO:
+        raise HTTPException(429, "Muitas tentativas com cartão hoje. Tente de novo amanhã ou pague com Pix.")
+    await db.executar("insert into tentativas_cartao (espaco_id) values (%s)", (espaco_id,))
 
 
 async def _recuperar_pedido(a: dict) -> dict | None:
@@ -151,8 +234,13 @@ async def _cliente(e: dict, documento: str) -> str:
     return novo["id"]
 
 
-async def assinar(e: dict, plano: str, forma: str, documento: str) -> dict:
-    """Começa (ou retoma) a assinatura e devolve o link da fatura. Plano trocado numa assinatura ativa: sem link."""
+async def assinar(e: dict, plano: str, forma: str, documento: str, cartao: dict | None = None,
+                 ip: str | None = None) -> dict:
+    """Começa (ou retoma) a assinatura sem sair do site (checkout transparente).
+
+    Pix: devolve o QR Code e o copia e cola. Cartão: o Asaas cobra na hora e devolve "processando".
+    Em qualquer caso o plano só muda quando o aviso do Asaas chegar. Plano trocado numa assinatura ativa: sem cobrança.
+    """
     if not asaas.configurado():
         raise HTTPException(503, "As assinaturas ainda não estão disponíveis.")
     if plano not in PAGAVEIS or forma not in FORMAS:
@@ -171,15 +259,26 @@ async def assinar(e: dict, plano: str, forma: str, documento: str) -> dict:
         if viva and not viva["asaas_assinatura"]:
             viva = await _recuperar_pedido(viva)
         if viva:
-            if viva["plano"] == plano and viva["forma"] == forma:
-                link = viva["link_pagamento"] or await _link_do_primeiro_pagamento(viva["asaas_assinatura"])
-                if link:
-                    await db.executar("update assinaturas set link_pagamento = %s where id = %s", (link, viva["id"]))
-                    return {"url": link}
+            if viva["plano"] == plano and viva["forma"] == forma == "pix":
+                return await _pix(viva)
+            if viva["forma"] == "cartao":
+                p = await _primeiro_pagamento(viva["asaas_assinatura"])
+                if p and p.get("status") not in ("PENDING", "OVERDUE"):
+                    # o cartão já foi cobrado (ou está em análise): nada de cobrar de novo
+                    return {"forma": "cartao", "situacao": "processando"}
             # outro plano ou forma antes de pagar: troca o pedido em aberto por um novo
             await _apagar_no_asaas(viva["asaas_assinatura"])
             await db.executar("update assinaturas set status = 'cancelada', atualizado_em = now() where id = %s",
                               (viva["id"],))
+
+        corpo = {}
+        if forma == "cartao":
+            if not cartao:
+                raise HTTPException(422, "Preencha os dados do cartão.")
+            if not ip:
+                raise HTTPException(422, "Não deu para identificar sua conexão. Recarregue a página e tente de novo.")
+            corpo = {**dados_do_cartao(cartao, e, documento), "remoteIp": ip}
+            await _contar_tentativa(e["id"])
 
         try:
             nova = await db.um("insert into assinaturas (espaco_id, plano, forma) values (%s, %s, %s) returning *",
@@ -188,22 +287,23 @@ async def assinar(e: dict, plano: str, forma: str, documento: str) -> dict:
             raise HTTPException(409, "Já existe um pedido de assinatura em andamento. Tente de novo em 1 minuto.")
         try:
             cliente = await _cliente(e, documento)
+            # cartão: com nextDueDate hoje, o Asaas cobra na hora; recusado volta 400 e nada é criado
             criada = await asaas.pedir("POST", "/subscriptions", json={
                 "customer": cliente, "billingType": FORMAS[forma], "value": PLANOS[plano]["preco_mensal_centavos"] / 100,
                 "nextDueDate": hoje().isoformat(), "cycle": "MONTHLY",
                 "description": f"Mecha · plano {PLANOS[plano]['nome']}", "externalReference": str(nova["id"]),
+                **corpo,
             })
         except ErroAsaas as erro:
             if erro.status != 504:  # recusado com certeza: o pedido sai. Sem resposta: fica para _recuperar_pedido
                 await db.executar("delete from assinaturas where id = %s", (nova["id"],))
             raise
+        nova = {**nova, "asaas_assinatura": criada["id"]}
         await db.executar("update assinaturas set asaas_assinatura = %s, atualizado_em = now() where id = %s",
                           (criada["id"], nova["id"]))
-        link = await _link_do_primeiro_pagamento(criada["id"])
-        if not link:
-            raise HTTPException(502, "A fatura ainda não ficou pronta. Tente de novo em 1 minuto.")
-        await db.executar("update assinaturas set link_pagamento = %s where id = %s", (link, nova["id"]))
-        return {"url": link}
+        if forma == "cartao":
+            return {"forma": "cartao", "situacao": "processando"}
+        return await _pix(nova)
     except ErroAsaas as erro:
         raise _erro_http(erro) from erro
 

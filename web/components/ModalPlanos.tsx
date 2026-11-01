@@ -30,34 +30,98 @@ function Preco({centavos}:{centavos:number}) {
   return <div className={styles.preco}><b>R$ {inteiro}<span>,{decimal}</span></b><small>/mês</small></div>;
 }
 
-/** Leva à fatura do Asaas. O plano só muda quando o Asaas confirma o pagamento (aviso para a API). */
+type Pix = {imagem:string|null;copia_e_cola:string;expira_em:string|null};
+type RespostaAssinatura = {forma?:"pix"|"cartao";pix?:Pix;situacao?:"processando";url?:null;plano?:string};
+const CARTAO_VAZIO = {titular:"",numero:"",validade:"",cvv:"",cep:"",numero_endereco:"",telefone:""};
+
+/** Mostra o QR Code e o copia e cola, e espera o aviso do Asaas. */
+function PagarPix({pix}:{pix:Pix}) {
+  const [copiado,setCopiado] = useState(false);
+  async function copiar() {
+    try {await navigator.clipboard.writeText(pix.copia_e_cola);setCopiado(true);setTimeout(()=>setCopiado(false),2500);} catch {}
+  }
+  return <div className={styles.pix}>
+    {pix.imagem && <img src={`data:image/png;base64,${pix.imagem}`} alt="QR Code do Pix" width={220} height={220}/>}
+    <p className={styles.aviso}>Abra o app do seu banco, escolha pagar com Pix e leia o QR Code, ou use o copia e cola.</p>
+    <label className={styles.campo}><span>Pix copia e cola</span><textarea readOnly value={pix.copia_e_cola} rows={3} onFocus={e=>e.currentTarget.select()}/></label>
+    <button type="button" className={styles.acao} onClick={copiar}>{copiado ? "Copiado!" : "Copiar código"}</button>
+  </div>;
+}
+
+/** Pagamento sem sair do site (checkout transparente). O plano só muda quando o Asaas confirma o pagamento (aviso para a API). */
 function Assinar({plano,planoAtual,fechar}:{plano:PlanoDisponivel;planoAtual:string;fechar:()=>void}) {
   const {eu,recarregarEu,avisar} = useApp();
   const assinatura = eu?.assinatura;
   const [forma,setForma] = useState<"pix"|"cartao">("pix");
   const [documento,setDocumento] = useState("");
+  const [cartao,setCartao] = useState(CARTAO_VAZIO);
   const [enviando,setEnviando] = useState(false);
   const [falha,setFalha] = useState<string|null>(null);
+  const [pix,setPix] = useState<Pix|null>(null);
+  const [processando,setProcessando] = useState(false);
+  const [demorou,setDemorou] = useState(false);
   const viva = assinatura && (assinatura.status === "ativa" || assinatura.status === "atrasada");
+  const esperando = Boolean(pix) || processando;
+  const liberado = useRef(false);
+
+  // enquanto espera o pagamento, confere de 5 em 5 segundos se o aviso do Asaas já chegou
+  useEffect(() => {
+    if (!esperando) return;
+    const conferir = setInterval(() => {recarregarEu();},5000);
+    const aviso = setTimeout(() => setDemorou(true),120_000);
+    const parar = setTimeout(() => clearInterval(conferir),900_000);
+    return () => {clearInterval(conferir);clearTimeout(aviso);clearTimeout(parar);};
+  },[esperando,recarregarEu]);
+
+  useEffect(() => {
+    if (!esperando || liberado.current || eu?.plano.id !== plano.id || eu?.assinatura?.status !== "ativa") return;
+    liberado.current = true;
+    avisar(`Pagamento confirmado: agora você está no plano ${plano.nome}.`);fechar();
+  },[esperando,eu,plano,avisar,fechar]);
 
   if (plano.id === "gratis") return <button type="button" className={styles.acao} onClick={fechar}>Entendi</button>;
-  if (viva && planoAtual === plano.id) return <><p className={styles.aviso}>Este já é o seu plano. Para cancelar ou pedir reembolso, abra Configurações → Plano e uso.</p><button type="button" className={styles.acao} onClick={fechar}>Entendi</button></>;
-  if (assinatura?.status === "aguardando" && assinatura.plano === plano.id && assinatura.link_pagamento) {
-    return <div className={styles.assinar}><p className={styles.aviso}>Seu pedido está aguardando o pagamento. Assim que ele for confirmado, o plano {plano.nome} é liberado.</p><a className={styles.acao} href={assinatura.link_pagamento}>Continuar pagamento</a></div>;
+  if (viva && planoAtual === plano.id && !esperando) return <><p className={styles.aviso}>Este já é o seu plano. Para cancelar ou pedir reembolso, abra Configurações → Plano e uso.</p><button type="button" className={styles.acao} onClick={fechar}>Entendi</button></>;
+
+  if (pix) return <div className={styles.assinar}>
+    <PagarPix pix={pix}/>
+    <p className={styles.esperando} role="status"><span className={styles.ponto} aria-hidden="true"/>Aguardando o pagamento. Assim que o Pix cair, o plano {plano.nome} é liberado aqui mesmo.</p>
+    {demorou && <p className={styles.aviso}>Já pagou? A confirmação pode levar alguns minutos. Você pode fechar esta janela: o plano é liberado sozinho.</p>}
+  </div>;
+  if (processando) return <div className={styles.assinar}>
+    <p className={styles.esperando} role="status"><span className={styles.ponto} aria-hidden="true"/>Confirmando o pagamento no cartão…</p>
+    {demorou && <p className={styles.aviso}>O banco está levando mais tempo para confirmar. Você pode fechar esta janela: o plano é liberado assim que o pagamento for aprovado.</p>}
+  </div>;
+
+  async function verPix() {
+    setEnviando(true);setFalha(null);
+    try {setPix((await api<{pix:Pix}>("/api/assinatura/pix")).pix);}
+    catch (erro) {setFalha(erro instanceof ErroApi ? erro.message : "Não deu para abrir o Pix. Tente de novo.");}
+    setEnviando(false);
+  }
+
+  if (assinatura?.status === "aguardando" && assinatura.plano === plano.id && assinatura.forma === "pix" && forma === "pix") {
+    return <div className={styles.assinar}><p className={styles.aviso}>Seu Pix está aguardando o pagamento. Assim que ele for confirmado, o plano {plano.nome} é liberado.</p>
+      {falha && <p className={styles.falha} role="alert">{falha}</p>}
+      <button type="button" className={styles.acao} onClick={verPix} disabled={enviando}>{enviando ? "Abrindo o Pix…" : "Ver o Pix"}</button>
+      <button type="button" className={styles.trocarForma} onClick={()=>setForma("cartao")}>Prefiro pagar com cartão</button>
+    </div>;
   }
 
   async function enviar(ev: React.FormEvent) {
     ev.preventDefault();
     setEnviando(true);setFalha(null);
     try {
-      const r = await api<{url:string|null}>("/api/assinatura",{method:"POST",json:{plano:plano.id,forma,documento}});
-      if (r.url) {location.href = r.url;return;}
+      const r = await api<RespostaAssinatura>("/api/assinatura",{method:"POST",json:{plano:plano.id,forma,documento,...(forma==="cartao" && !viva ? {cartao} : {})}});
+      if (r.pix) {setPix(r.pix);setEnviando(false);recarregarEu();return;}
+      if (r.situacao === "processando") {setCartao(CARTAO_VAZIO);setProcessando(true);setEnviando(false);recarregarEu();return;}
       await recarregarEu();avisar(`Pronto: agora você está no plano ${plano.nome}.`);fechar();
     } catch (erro) {
       setFalha(erro instanceof ErroApi ? erro.message : "Não deu para iniciar a assinatura. Tente de novo.");
       setEnviando(false);
     }
   }
+
+  const campo = (nome: keyof typeof CARTAO_VAZIO) => ({value:cartao[nome],onChange:(e:React.ChangeEvent<HTMLInputElement>)=>setCartao(c=>({...c,[nome]:e.target.value}))});
 
   return <form className={styles.assinar} onSubmit={enviar}>
     {viva && <p className={styles.aviso}>Você vai trocar do seu plano atual para o {plano.nome}. A troca vale na hora e as próximas cobranças passam a ser de {(plano.preco_mensal_centavos/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}.</p>}
@@ -67,10 +131,23 @@ function Assinar({plano,planoAtual,fechar}:{plano:PlanoDisponivel;planoAtual:str
         <label><input type="radio" name="forma" value="cartao" checked={forma==="cartao"} onChange={()=>setForma("cartao")}/>Cartão de crédito</label>
       </fieldset>
       <label className={styles.campo}><span>CPF ou CNPJ</span><input value={documento} onChange={e=>setDocumento(e.target.value)} inputMode="numeric" autoComplete="off" required minLength={11} maxLength={20} placeholder="000.000.000-00"/><small>Pedido pelo Asaas para emitir a cobrança.</small></label>
+      {forma === "cartao" && <fieldset className={styles.cartao}><legend>Dados do cartão</legend>
+        <label className={styles.campo}><span>Nome impresso no cartão</span><input {...campo("titular")} autoComplete="cc-name" required maxLength={100}/></label>
+        <label className={styles.campo}><span>Número do cartão</span><input {...campo("numero")} autoComplete="cc-number" inputMode="numeric" required maxLength={23} placeholder="0000 0000 0000 0000"/></label>
+        <div className={styles.linha}>
+          <label className={styles.campo}><span>Validade</span><input {...campo("validade")} autoComplete="cc-exp" inputMode="numeric" required maxLength={7} placeholder="MM/AA"/></label>
+          <label className={styles.campo}><span>CVV</span><input {...campo("cvv")} autoComplete="cc-csc" inputMode="numeric" required maxLength={4} placeholder="123"/></label>
+        </div>
+        <div className={styles.linha}>
+          <label className={styles.campo}><span>CEP</span><input {...campo("cep")} autoComplete="postal-code" inputMode="numeric" required maxLength={9} placeholder="00000-000"/></label>
+          <label className={styles.campo}><span>Nº do endereço</span><input {...campo("numero_endereco")} autoComplete="off" required maxLength={20} placeholder="123"/></label>
+        </div>
+        <label className={styles.campo}><span>Celular com DDD</span><input {...campo("telefone")} autoComplete="tel-national" inputMode="tel" required maxLength={20} placeholder="(11) 90000-0000"/><small>O Asaas usa o endereço e o telefone do titular para aprovar a compra com segurança.</small></label>
+      </fieldset>}
     </>}
     {falha && <p className={styles.falha} role="alert">{falha}</p>}
-    <button type="submit" className={styles.acao} disabled={enviando}>{enviando ? "Abrindo o pagamento…" : viva ? `Trocar para o ${plano.nome}` : `Assinar o ${plano.nome}`}</button>
-    {!viva && <p className={styles.aviso}>{forma === "cartao" ? "A cobrança no cartão se repete todo mês." : "Todo mês chega um Pix novo por e-mail."} O pagamento é feito na página segura do Asaas, e você pode cancelar quando quiser. Nos primeiros 7 dias, o reembolso é integral.</p>}
+    <button type="submit" className={styles.acao} disabled={enviando}>{enviando ? (forma === "cartao" && !viva ? "Processando o pagamento…" : "Gerando o Pix…") : viva ? `Trocar para o ${plano.nome}` : forma === "cartao" ? `Pagar e assinar o ${plano.nome}` : `Gerar Pix do ${plano.nome}`}</button>
+    {!viva && <p className={styles.aviso}><Icone nome="cadeado" tamanho={13}/> {forma === "cartao" ? "A cobrança no cartão se repete todo mês. Os dados do cartão vão direto para o Asaas e não ficam guardados com a gente." : "Todo mês chega um Pix novo por e-mail."} Você pode cancelar quando quiser. Nos primeiros 7 dias, o reembolso é integral.</p>}
   </form>;
 }
 
@@ -126,7 +203,7 @@ export function ModalPlanos({planoAtual,fechar}:{planoAtual:string;fechar:()=>vo
           </article></div>;
         })}</div></div>
         {gratuito && <article className={styles.gratuito} aria-label="Plano Grátis"><div className={styles.gratuitoCorpo}><div className={styles.gratuitoTitulo}><h3>Comece com o Grátis</h3>{planoAtual === "gratis" && <span className={styles.selo}>Seu plano</span>}</div><p>Seu primeiro passo para encontrar boas ideias.</p><span className={styles.gratuitoLimites}>{gratuito.garimpos} garimpos por mês · Até {gratuito.itens_completos} resultados completos · Sem mensalidade</span><button type="button" className={styles.acao} aria-label="Ver detalhes do plano Grátis" onClick={()=>setSelecionado(gratuito)}>Ver detalhes</button></div><div className={styles.ilustracaoGratuito} aria-hidden="true"><span/><Pose nome="andando" cor="menta" largura={115}/></div></article>}
-        <footer className={styles.rodape}><span><Icone nome="cadeado" tamanho={13}/>Ver os planos não altera sua conta.</span><p>{dados.contratacao_disponivel ? "Pagamento por Pix ou cartão, pelo Asaas." : "Assinaturas disponíveis em breve."}</p></footer>
+        <footer className={styles.rodape}><span><Icone nome="cadeado" tamanho={13}/>Ver os planos não altera sua conta.</span><p>{dados.contratacao_disponivel ? "Pagamento por Pix ou cartão, aqui mesmo, processado pelo Asaas." : "Assinaturas disponíveis em breve."}</p></footer>
       </>}
     </div>
   </dialog>;

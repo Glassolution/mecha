@@ -137,3 +137,15 @@
 .campo small { margin-top:6px; color:#77735f; font-size:13px; line-height:1.5; }
 .aviso { margin:0; color:#625b42; font-size:14px; line-height:1.6; }
 .falha { margin:0; padding:10px 12px; border-radius:8px; background:#fdecea; color:#8a2c22; font-size:14px; line-height:1.5; }
+.campo textarea { padding:10px 14px; border:1px solid #e3e1d6; border-radius:10px; background:#fff; color:#262621; font:13px/1.5 ui-monospace,monospace; resize:none; word-break:break-all; }
+.cartao { display:grid; gap:14px; margin:0; padding:0; border:0; }
+.cartao legend { margin-bottom:8px; color:#49543e; font-size:15px; font-weight:500; }
+.linha { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.pix { display:grid; gap:14px; justify-items:center; }
+.pix img { width:220px; height:220px; padding:10px; border:1px solid #e3e1d6; border-radius:12px; background:#fff; image-rendering:pixelated; }
+.pix .campo { width:100%; }
+.esperando { display:flex; align-items:center; gap:10px; margin:0; color:#3b3a33; font-size:14px; line-height:1.5; }
+.ponto { flex:none; width:9px; height:9px; border-radius:50%; background:#3f8f4f; animation:pulsar 1.4s ease-in-out infinite; }
+@keyframes pulsar { 50% { opacity:.3; } }
+.trocarForma { justify-self:center; padding:8px; border:0; background:none; color:#625b42; font:inherit; font-size:14px; text-decoration:underline; cursor:pointer; }
+@media (prefers-reduced-motion:reduce) { .ponto { animation:none; } }

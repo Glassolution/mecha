@@ -15,16 +15,46 @@ log = logging.getLogger(__name__)
 r = APIRouter(prefix="/api")
 
 
+class Cartao(BaseModel):
+    """Só de passagem para o Asaas: nada disso é gravado."""
+    titular: str = Field(max_length=100)
+    numero: str = Field(max_length=30)
+    validade: str = Field(max_length=10)
+    cvv: str = Field(max_length=6)
+    cep: str = Field(max_length=12)
+    numero_endereco: str = Field(max_length=20)
+    telefone: str = Field(max_length=20)
+
+
 class PedidoAssinatura(BaseModel):
     plano: Literal["pro", "agencia"]
     forma: Literal["pix", "cartao"]
     documento: str = Field(min_length=11, max_length=20)
+    cartao: Cartao | None = None
+
+
+def ip_de_quem_paga(request: Request) -> str | None:
+    """O Asaas pede o IP do aparelho da pessoa, não o do servidor.
+
+    O site (Vercel) troca o X-Forwarded-For pelo IP real de quem acessou; o Render acrescenta o da Vercel no fim.
+    Por isso vale o primeiro da lista.
+    """
+    encaminhado = request.headers.get("x-forwarded-for", "")
+    primeiro = encaminhado.split(",")[0].strip()
+    return primeiro or (request.client.host if request.client else None)
 
 
 @r.post("/assinatura")
-async def assinar(p: PedidoAssinatura, e=Depends(sessao.atual)):
-    """Devolve o link da fatura do Asaas. O plano só muda quando o Asaas avisar que o pagamento entrou."""
-    return await assinaturas.assinar(e, p.plano, p.forma, p.documento)
+async def assinar(p: PedidoAssinatura, request: Request, e=Depends(sessao.atual)):
+    """Pix: devolve o QR Code. Cartão: cobra na hora. O plano só muda quando o Asaas avisar que o pagamento entrou."""
+    return await assinaturas.assinar(e, p.plano, p.forma, p.documento,
+                                     p.cartao.model_dump() if p.cartao else None, ip_de_quem_paga(request))
+
+
+@r.get("/assinatura/pix")
+async def pix(e=Depends(sessao.atual)):
+    """O QR Code do Pix que ainda está aguardando pagamento."""
+    return await assinaturas.pix_pendente(e["id"])
 
 
 @r.post("/assinatura/cancelar")
