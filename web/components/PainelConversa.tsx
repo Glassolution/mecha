@@ -150,7 +150,7 @@ function RespostaConversa({texto,animar,aoAvancar,children}:{texto:string;animar
   useEffect(() => {aoAvancar();}, [escrita.texto,aoAvancar]);
   return <div className={escrita.digitando ? styles.digitando : undefined} aria-busy={escrita.digitando} data-escrevendo={escrita.digitando ? "true" : undefined}>
     <TextoConversa texto={escrita.texto} parcial={escrita.digitando}/>
-    {escrita.digitando ? <><span className="oculto">A Wae está escrevendo a resposta.</span><button type="button" className={styles.mostrarTudo} onClick={escrita.concluir}>Mostrar tudo<Icone nome="baixo" tamanho={11}/></button></> : children}
+    {escrita.digitando ? <><span className="oculto">A Cleo está escrevendo a resposta.</span><button type="button" className={styles.mostrarTudo} onClick={escrita.concluir}>Mostrar tudo<Icone nome="baixo" tamanho={11}/></button></> : children}
   </div>;
 }
 
@@ -250,7 +250,7 @@ export function PainelConversa({ video: v, mensagens, anterior, texto, mudarText
     <section className={styles.chat} aria-label="Conversa sobre o vídeo">
       <header className={styles.barra}>
         <Link href={voltarPara} className={styles.voltar} aria-label="Voltar aos vídeos" title="Voltar aos vídeos"><Icone nome="voltar" tamanho={16}/></Link>
-        <h1 className="oculto">Conversa com a Wae</h1>
+        <h1 className="oculto">Conversa com a Cleo</h1>
         <div className={styles.ferramentas}>
           <button className={styles.salvarAnalise} data-salva={analiseSalva || undefined} aria-label={analiseSalva ? "Análise salva, gerenciar pastas" : "Salvar análise"} aria-haspopup="dialog" title={analiseSalva ? "Gerenciar pastas desta análise" : "Salvar análise em uma pasta"} disabled={indisponivel || !turnos.some(t => !!t.resposta)} onClick={() => abrirSalvar("analise")}><Icone nome={analiseSalva ? "check" : "salvo"} tamanho={13}/><span>{analiseSalva ? "Análise salva" : "Salvar análise"}</span></button>
           <button className={styles.verVideo} aria-expanded={videoAberto} aria-controls={`${painelId}-previa`} onClick={() => setVideoAberto(!videoAberto)}><Icone nome="play" tamanho={13}/>Vídeo</button>
@@ -262,11 +262,11 @@ export function PainelConversa({ video: v, mensagens, anterior, texto, mudarText
             {turnos.map((turno) => <article key={turno.id} className={styles.turno}>
               <div className={styles.pergunta}><p>{turno.pergunta}</p><button disabled={indisponivel} onClick={() => usarModelo(turno.pergunta)} aria-label="Editar pergunta" title="Editar pergunta"><Icone nome="refazer" tamanho={14}/></button></div>
               <div className={styles.resposta}>
-                {turno.resposta ? <RespostaConversa key={turno.respostaId ?? turno.id} texto={turno.resposta} animar={!!turno.animar} aoAvancar={acompanharEscrita}><div className={styles.acoesResposta}><button aria-label="Copiar resposta da Wae" title="Copiar resposta" onClick={async () => {try {await navigator.clipboard.writeText(turno.resposta!);setCopiada(turno.id);}catch {setCopiada(null);}}}><Icone nome={copiada === turno.id ? "check" : "copiar"} tamanho={13}/>{copiada === turno.id ? "Copiado" : "Copiar"}</button><button disabled={indisponivel} onClick={() => perguntar(turno.pergunta)} title="Repetir pergunta" aria-label="Repetir pergunta"><Icone nome="refazer" tamanho={13}/></button>{turno.salva && <span>Análise salva</span>}</div>{turno === turnos[turnos.length - 1] && <ProximosPassos perguntas={turnos.map((t) => t.pergunta)} indisponivel={indisponivel} perguntar={perguntar} continuar={() => campo.current?.focus()}/>}</RespostaConversa> : respondendo ? <div className={styles.pensando} role="status"><IconeBru tamanho={35}/><span>A Wae está lendo o vídeo, os comentários e o mercado<i className={styles.pontos} aria-hidden="true"><b/><b/><b/></i></span></div> : <p className={styles.abrindo}>Esta pergunta ainda não tem resposta. Tente enviá-la novamente.</p>}
+                {turno.resposta ? <RespostaConversa key={turno.respostaId ?? turno.id} texto={turno.resposta} animar={!!turno.animar} aoAvancar={acompanharEscrita}><div className={styles.acoesResposta}><button aria-label="Copiar resposta da Cleo" title="Copiar resposta" onClick={async () => {try {await navigator.clipboard.writeText(turno.resposta!);setCopiada(turno.id);}catch {setCopiada(null);}}}><Icone nome={copiada === turno.id ? "check" : "copiar"} tamanho={13}/>{copiada === turno.id ? "Copiado" : "Copiar"}</button><button disabled={indisponivel} onClick={() => perguntar(turno.pergunta)} title="Repetir pergunta" aria-label="Repetir pergunta"><Icone nome="refazer" tamanho={13}/></button>{turno.salva && <span>Análise salva</span>}</div>{turno === turnos[turnos.length - 1] && <ProximosPassos perguntas={turnos.map((t) => t.pergunta)} indisponivel={indisponivel} perguntar={perguntar} continuar={() => campo.current?.focus()}/>}</RespostaConversa> : respondendo ? <div className={styles.pensando} role="status"><IconeBru tamanho={35}/><span>A Cleo está lendo o vídeo, os comentários e o mercado<i className={styles.pontos} aria-hidden="true"><b/><b/><b/></i></span></div> : <p className={styles.abrindo}>Esta pergunta ainda não tem resposta. Tente enviá-la novamente.</p>}
               </div>
             </article>)}
           </div> : <div className={styles.inicio}>
-            <div className={styles.identidade}><IconeBru tamanho={48}/><b>Wae</b><span>Sua parceira de análise</span></div>
+            <div className={styles.identidade}><IconeBru tamanho={48}/><b>Cleo</b><span>Sua parceira de análise</span></div>
             <p>Vamos entender o que está por trás deste vídeo.</p>
             <p>Posso explorar os ganchos, encontrar sinais de demanda e ajudar você a transformar uma ideia em um próximo passo.</p>
             <button className={styles.fonte} onClick={() => {setContextoAberto(true);setVideoAberto(true);}}><Icone nome="claquete" tamanho={15}/><span>{v.autor || "Vídeo selecionado"}</span><Icone nome="diagonal" tamanho={12}/></button>
@@ -280,23 +280,23 @@ export function PainelConversa({ video: v, mensagens, anterior, texto, mudarText
         {falha && <div className="ac-falha" role="alert"><span>{falha}</span><button onClick={tentarNovamente}>Tentar novamente</button></div>}
         <form className={styles.compositor} aria-busy={respondendo} onSubmit={(e) => {e.preventDefault();perguntar(texto);}}>
           <label className="oculto" htmlFor={`${painelId}-pergunta`}>Sua pergunta sobre o vídeo</label>
-          <textarea id={`${painelId}-pergunta`} ref={campo} rows={2} maxLength={4000} value={texto} disabled={indisponivel} placeholder="Pergunte à Wae sobre este vídeo…" onChange={(e) => mudarTexto(e.target.value)} onKeyDown={(e) => {if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {e.preventDefault();if (texto.trim()) perguntar(texto);}}}/>
+          <textarea id={`${painelId}-pergunta`} ref={campo} rows={2} maxLength={4000} value={texto} disabled={indisponivel} placeholder="Pergunte à Cleo sobre este vídeo…" onChange={(e) => mudarTexto(e.target.value)} onKeyDown={(e) => {if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {e.preventDefault();if (texto.trim()) perguntar(texto);}}}/>
           <div className={styles.compositorPe}>
             <button type="button" className={styles.contextoIcone} aria-label="Ver contexto do vídeo" title="Ver contexto do vídeo" onClick={() => {setContextoAberto(true);setVideoAberto(true);}}><Icone nome="link" tamanho={17}/></button>
             <details ref={modoMenu} className={`${styles.menu} ${styles.modoMenu}`}>
-              <summary className={styles.bruPill} title="Modo da análise"><IconeBru tamanho={18}/><span>Wae</span><span className={styles.modoAtual}>{MODOS[modo].curto}</span><Icone nome="baixo" tamanho={10}/></summary>
+              <summary className={styles.bruPill} title="Modo da análise"><IconeBru tamanho={18}/><span>Cleo</span><span className={styles.modoAtual}>{MODOS[modo].curto}</span><Icone nome="baixo" tamanho={10}/></summary>
               <div role="menu" aria-label="Modo da análise">
-                <span className={styles.modoTitulo}>Selecionar modo<small>Como a Wae analisa este vídeo</small></span>
+                <span className={styles.modoTitulo}>Selecionar modo<small>Como a Cleo analisa este vídeo</small></span>
                 {(Object.keys(MODOS) as Modo[]).map((m) => <button key={m} type="button" role="menuitemradio" aria-checked={m === modo} disabled={indisponivel} onClick={() => trocarModo(m)}>
                   <span>{MODOS[m].nome}</span>{m === modo && <Icone nome="check" tamanho={15}/>}
                 </button>)}
               </div>
             </details>
             <details className={styles.menu}><summary aria-label="Mais opções" title="Mais opções"><Icone nome="mais_h" tamanho={18}/></summary><div><button type="button" onClick={(e) => {abrirSalvar("video");e.currentTarget.closest("details")?.removeAttribute("open");}}><Icone nome="salvo" tamanho={14}/>Salvar vídeo</button><a href={v.url_original} target="_blank" rel="noopener noreferrer"><Icone nome="abrir" tamanho={14}/>Abrir original</a></div></details>
-            <button type="submit" className={styles.enviar} disabled={!texto.trim() || indisponivel} aria-label={respondendo ? "Wae está respondendo" : "Enviar mensagem"}>{respondendo ? <i className={styles.spinner} aria-hidden="true"/> : <Icone nome="cima" tamanho={19}/>}</button>
+            <button type="submit" className={styles.enviar} disabled={!texto.trim() || indisponivel} aria-label={respondendo ? "Cleo está respondendo" : "Enviar mensagem"}>{respondendo ? <i className={styles.spinner} aria-hidden="true"/> : <Icone nome="cima" tamanho={19}/>}</button>
           </div>
         </form>
-        <p className={styles.rodape}>A Wae pode errar. Confira as informações.</p>
+        <p className={styles.rodape}>A Cleo pode errar. Confira as informações.</p>
       </div>
     </section>
     <aside id={`${painelId}-previa`} className={`${styles.previa} ${videoAberto ? styles.previaAberta : ""}`} aria-label="Vídeo e contexto da análise">
@@ -306,7 +306,7 @@ export function PainelConversa({ video: v, mensagens, anterior, texto, mudarText
       <div id={`${painelId}-contexto`} className={styles.contexto} hidden={!contextoAberto}>
         <h2>{titulo}</h2><p className={styles.autor}>{v.autor_nome || v.autor || "Criador"} · {PLATAFORMA[v.fonte] ?? v.fonte}</p>
         <AbasPilula rotulo="Contexto do vídeo" valor={lado} mudar={setLado} opcoes={[["contexto","Sobre o vídeo"],["numeros","Números"]]}/>
-        {lado === "numeros" ? <NumerosVideo v={v}/> : <div className="ac-contexto"><h3>Legenda original</h3><p>{v.texto_completo || "Este vídeo não tem legenda disponível."}</p><span className="ac-transcricao"><Icone nome={v.transcrito ? "check" : "fala"} tamanho={13}/>{v.transcrito ? "Transcrição disponível para a Wae" : "Sem transcrição disponível"}</span>{anterior?.momentos?.length ? <><h3>O que sustenta a análise</h3>{anterior.momentos.map((m) => <div className="ac-evidencia" key={m.titulo}><b>{m.titulo}</b><p>{m.texto}</p></div>)}</> : null}</div>}
+        {lado === "numeros" ? <NumerosVideo v={v}/> : <div className="ac-contexto"><h3>Legenda original</h3><p>{v.texto_completo || "Este vídeo não tem legenda disponível."}</p><span className="ac-transcricao"><Icone nome={v.transcrito ? "check" : "fala"} tamanho={13}/>{v.transcrito ? "Transcrição disponível para a Cleo" : "Sem transcrição disponível"}</span>{anterior?.momentos?.length ? <><h3>O que sustenta a análise</h3>{anterior.momentos.map((m) => <div className="ac-evidencia" key={m.titulo}><b>{m.titulo}</b><p>{m.texto}</p></div>)}</> : null}</div>}
       </div>
     </aside>
     {salvando && <SalvarEm tipo={tipoSalvar} id={v.id} fechar={() => setSalvando(false)} aoMudar={tipoSalvar === "analise" ? (salva) => {setSalvaAgora(salva);atualizarPastasAnalise();} : undefined}/>}

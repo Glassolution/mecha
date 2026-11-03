@@ -29,12 +29,12 @@ export default function Inicio() {
     { nome: "Começar", tarefas: [
       { id: "conta", titulo: "Criar sua conta", texto: "Para guardar suas buscas e ideias", icone: "usuario",
         href: "/entrar?modo=criar&proximo=%2Finicio", feita: !!eu },
-      { id: "quiz", titulo: "Contar o que você procura", texto: "A Wae acerta mais quando conhece seus nichos", icone: "alvo",
+      { id: "quiz", titulo: "Contar o que você procura", texto: "A Cleo acerta mais quando conhece seus nichos", icone: "alvo",
         href: "/boas-vindas?proximo=%2Finicio", feita: !!eu?.espaco.boas_vindas_ok },
       { id: "saas", titulo: "Contar qual é o seu SaaS", texto: "Nome e o que ele faz, para ideias perto do seu negócio", icone: "maleta",
         href: "/config#negocio", feita: !!eu?.meu_saas?.nome },
     ] },
-    { nome: "Explorar a Wae", tarefas: [
+    { nome: "Explorar a Cleo", tarefas: [
       { id: "garimpo", titulo: "Fazer seu primeiro garimpo", texto: "Busque um nicho no TikTok e no Instagram", icone: "radar",
         href: "/pesquisa", feita: lista.length > 0 || (eu?.uso.garimpos ?? 0) > 0 },
       { id: "palavras", titulo: "Garimpar 3 palavras de uma vez", texto: "Separe por vírgula, como “app para médicos, clínica, consultório”", icone: "busca",
@@ -87,7 +87,7 @@ export default function Inicio() {
 
       <div className="boas-topo">
         <MascoteBoasVindas />
-        <h1>{primeiroNome ? `Boas-vindas, ${primeiroNome}!` : "Boas-vindas à Wae!"}</h1>
+        <h1>{primeiroNome ? `Boas-vindas, ${primeiroNome}!` : "Boas-vindas à Cleo!"}</h1>
         <p>Vamos deixar tudo pronto para você achar sua próxima ideia em poucos passos.</p>
       </div>
 

@@ -21,7 +21,7 @@ function beneficios(plano: PlanoDisponivel) {
     plano.itens_completos === null ? "Todos os resultados completos" : `Até ${plano.itens_completos} resultados completos`,
     "Pesquisa no TikTok e Instagram",
     "Coleções para suas referências",
-    "Converse sobre vídeos com a Wae",
+    "Converse sobre vídeos com a Cleo",
   ];
 }
 

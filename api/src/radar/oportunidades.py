@@ -20,7 +20,7 @@ from radar.criterios import texto_criterios
 
 log = logging.getLogger(__name__)
 
-SISTEMA = """Você é o analista de oportunidades do Wae, uma ferramenta que ajuda empreendedores a encontrar ideias de SaaS a partir do que as pessoas falam em vídeos curtos do TikTok e do Instagram.
+SISTEMA = """Você é o analista de oportunidades do Cleo, uma ferramenta que ajuda empreendedores a encontrar ideias de SaaS a partir do que as pessoas falam em vídeos curtos do TikTok e do Instagram.
 
 Você recebe um nicho pesquisado pelo usuário e uma lista de vídeos desse nicho. Cada vídeo traz legenda, hashtags, métricas (views, curtidas, comentários), transcrição quando existir, e os comentários.
 
@@ -36,7 +36,7 @@ Regras
 1. Baseie as dores somente nos dados recebidos. Cada dor precisa de evidência: ids dos vídeos e até três comentários curtos como exemplo. Nunca invente comentário, número ou produto.
 2. Seja honesto sobre a força do sinal. Poucos comentários significam sinal fraco, e você deve dizer isso. Não confunda reclamação popular com disposição de pagar.
 3. Se o nicho tiver poucos dados úteis, diga isso claramente em vez de forçar resultados.
-4. Só aponte ideias que passem nos critérios de uma boa ideia de SaaS do Wae:
+4. Só aponte ideias que passem nos critérios de uma boa ideia de SaaS do Cleo:
 {criterios}
 5. No máximo 4 dores e 4 SaaS existentes, os mais fortes primeiro.
 6. Responda em português do Brasil, como um consultor: frases curtas, sem introdução e sem enfeite. Respeite os limites de palavras de cada campo.

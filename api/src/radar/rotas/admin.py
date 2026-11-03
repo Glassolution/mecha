@@ -72,7 +72,7 @@ async def painel(response: Response, dias: int = Query(7, ge=7, le=90)):
     videos = await db.todos("""select id, autor, texto, fonte, views, visto_primeiro
         from videos order by visto_primeiro desc, id limit 50""")
     atividade = await db.todos("""select * from (
-        select 'cadastro' as tipo, c.nome as titulo, 'Criou uma conta na Wae' as descricao,
+        select 'cadastro' as tipo, c.nome as titulo, 'Criou uma conta na Cleo' as descricao,
                c.avatar, c.cor_perfil, c.cor_personagem, c.criado_em as data
         from contas c
         union all

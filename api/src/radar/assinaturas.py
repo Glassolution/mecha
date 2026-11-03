@@ -291,7 +291,7 @@ async def assinar(e: dict, plano: str, forma: str, documento: str, cartao: dict 
             criada = await asaas.pedir("POST", "/subscriptions", json={
                 "customer": cliente, "billingType": FORMAS[forma], "value": PLANOS[plano]["preco_mensal_centavos"] / 100,
                 "nextDueDate": hoje().isoformat(), "cycle": "MONTHLY",
-                "description": f"Wae · plano {PLANOS[plano]['nome']}", "externalReference": str(nova["id"]),
+                "description": f"Cleo · plano {PLANOS[plano]['nome']}", "externalReference": str(nova["id"]),
                 **corpo,
             })
         except ErroAsaas as erro:
@@ -311,7 +311,7 @@ async def assinar(e: dict, plano: str, forma: str, documento: str, cartao: dict 
 async def _trocar_plano(e: dict, a: dict, plano: str) -> dict:
     """Muda o valor das próximas cobranças e o plano na hora (sem cobrança proporcional)."""
     await asaas.pedir("PUT", f"/subscriptions/{a['asaas_assinatura']}", json={
-        "value": PLANOS[plano]["preco_mensal_centavos"] / 100, "description": f"Wae · plano {PLANOS[plano]['nome']}",
+        "value": PLANOS[plano]["preco_mensal_centavos"] / 100, "description": f"Cleo · plano {PLANOS[plano]['nome']}",
         "updatePendingPayments": True,
     })
     async with db.conexao() as con:

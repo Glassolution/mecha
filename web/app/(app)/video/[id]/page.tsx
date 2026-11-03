@@ -181,7 +181,7 @@ export default function AssistirVideo() {
           <span className="av-secao-n">{v.saas.length}</span>
         </div>
         {v.saas.length === 0 ? (
-          <p className="av-vazio">Nenhum app citado foi lido ainda. A análise da Wae olha o vídeo inteiro.</p>
+          <p className="av-vazio">Nenhum app citado foi lido ainda. A análise da Cleo olha o vídeo inteiro.</p>
         ) : (
           <ul className="av-saas">
             {v.saas.map((s) => <li key={s.id}><b>{s.nome}</b>{s.dominio && <small>{s.dominio}</small>}</li>)}

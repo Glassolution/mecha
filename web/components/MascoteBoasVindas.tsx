@@ -23,7 +23,7 @@ export function MascoteBoasVindas() {
   }
 
   return (
-    <button type="button" className="boas-bru" aria-label="Cumprimentar a Wae" onPointerMove={acompanhar} onPointerLeave={repousar} onClick={() => setCumprimento((vez) => vez + 1)}>
+    <button type="button" className="boas-bru" aria-label="Cumprimentar a Cleo" onPointerMove={acompanhar} onPointerLeave={repousar} onClick={() => setCumprimento((vez) => vez + 1)}>
       <span key={cumprimento} className={`boas-bru-cena ${cumprimento ? "cumprimenta" : "chega"}`} aria-hidden="true">
         <span className="boas-bru-sombra" />
         <span className="boas-bru-inclina">

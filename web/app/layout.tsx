@@ -6,13 +6,13 @@ const inter = Inter({ subsets: ["latin"], variable: "--f-ui" });
 const mono =IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--f-mono" });
 
 export const metadata: Metadata = {
-  title: "Wae — ideias de SaaS em alta",
+  title: "Cleo — ideias de SaaS em alta",
   description: "Em 1 minuto, as ideias de SaaS que estão bombando no seu nicho.",
 };
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 
-// A identidade da Wae usa uma base clara.
+// A identidade da Cleo usa uma base clara.
 const TEMA = `(function(){try{localStorage.removeItem("tema")}catch(e){}})()`;
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

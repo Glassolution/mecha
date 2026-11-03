@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 POR_LOTE = 25
 _VAGAS = asyncio.Semaphore(4)  # chamadas ao Gemini ao mesmo tempo
 
-SISTEMA = f"""Você faz a triagem de vídeos curtos (TikTok e Instagram) para o Wae, que ajuda empreendedores a \
+SISTEMA = f"""Você faz a triagem de vídeos curtos (TikTok e Instagram) para o Cleo, que ajuda empreendedores a \
 achar ideias de SaaS que valem a pena. Para cada vídeo, pense no público que assiste e no trabalho por trás do \
 tema e dê uma nota de 0 a 25 em cada critério de uma boa ideia de SaaS:
 

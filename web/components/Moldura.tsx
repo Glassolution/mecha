@@ -150,7 +150,7 @@ export function Moldura({ children }: { children: React.ReactNode }) {
       {sidebarAberta && <button className="sidebar-fundo" aria-label="Fechar menu" onClick={() => setSidebarAberta(false)} />}
       <aside id="sidebar" className={`sidebar${sidebarAberta ? " aberta" : ""}`} aria-label="Menu principal">
         <div className="sidebar-marca">
-          <Link href="/inicio" onClick={() => setSidebarAberta(false)} aria-label="Wae, ir para o início"><Logo tamanho={30} triangulo /></Link>
+          <Link href="/inicio" onClick={() => setSidebarAberta(false)} aria-label="Cleo, ir para o início"><Logo tamanho={30} triangulo /></Link>
           <button className="sidebar-fechar icone-bt" onClick={() => setSidebarAberta(false)} aria-label="Fechar menu"><Icone nome="x" /></button>
         </div>
         <nav className="sidebar-nav" aria-label="Navegação principal">

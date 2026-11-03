@@ -3,7 +3,7 @@ import { supabaseServidor } from "@/lib/supabase/servidor";
 import { emailAdmin } from "@/lib/admin";
 import { PainelAdmin } from "@/components/PainelAdmin";
 
-export const metadata = { title: "Administração — Wae" };
+export const metadata = { title: "Administração — Cleo" };
 
 export default async function Admin() {
   const supabase = await supabaseServidor();

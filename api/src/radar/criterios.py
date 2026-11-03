@@ -1,4 +1,4 @@
-"""Os critérios de uma boa ideia de SaaS no Wae. A triagem, a análise do vídeo e o analista de
+"""Os critérios de uma boa ideia de SaaS no Cleo. A triagem, a análise do vídeo e o analista de
 oportunidades usam a mesma régua: cada critério vale até 25 pontos e a nota é a soma (0 a 100).
 """
 

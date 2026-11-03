@@ -228,7 +228,7 @@ async def conversar_video(video_id: str, pergunta: PerguntaVideo, e=Depends(sess
         async with con.transaction():
             cur = await con.execute("select pg_try_advisory_xact_lock(hashtextextended(%s, 0)) as ok", (f"chat:{e['id']}",))
             if not (await cur.fetchone())["ok"]:
-                raise HTTPException(409, "A Wae já está respondendo neste espaço. Aguarde e tente novamente.")
+                raise HTTPException(409, "A Cleo já está respondendo neste espaço. Aguarde e tente novamente.")
             cur = await con.execute(
                 "select * from conversas_video where espaco_id = %s and video_id = %s and pedido_id = %s",
                 (e["id"], video_id, pergunta.pedido_id),

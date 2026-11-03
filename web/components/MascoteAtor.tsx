@@ -9,7 +9,7 @@ type Acao = (typeof ACOES)[number];
 
 export type ModoMascote = "normal" | "lendo" | "tapando" | "espiando";
 
-// cada ação e cada modo mostram uma pose da Wae
+// cada ação e cada modo mostram uma pose da Cleo
 const POSE_DA_ACAO: Record<Acao, NomePose> = {
   pulinho: "pulando", inspeciona: "pensando", procura: "andando", achei: "pulando",
   cambalhota: "pulando", espia: "pensando", aceno: "oi", danca: "bracos-abertos",

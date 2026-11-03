@@ -1,6 +1,6 @@
 /** Enviada sozinha quando a conversa de um vídeo abre pela primeira vez. */
 export const PERGUNTA_INICIAL = "Analise este vídeo: qual é o problema, qual a solução e que SaaS eu posso criar.";
-/** Enviada pelo botão que aparece quando a Wae oferece o prompt. */
+/** Enviada pelo botão que aparece quando a Cleo oferece o prompt. */
 /** Para quem quer replicar ou mandar refazer o vídeo (investidor, marketing, quem já tem um SaaS). */
 export const PERGUNTA_CRIATIVO = "Analise o criativo deste vídeo: o que deu certo, se está funcionando de verdade, como recriar para divulgar um SaaS e quem pode fazer.";
 export const PEDIR_ROTEIRO = "Sim, escreva o roteiro completo do criativo.";

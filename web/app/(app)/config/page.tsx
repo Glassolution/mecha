@@ -15,12 +15,12 @@ type Nicho = { id: string; rotulo: string };
 type Secao = "perfil" | "negocio" | "assuntos" | "plano" | "conta" | "conexoes";
 
 const SECOES: { id: Secao; nome: string; icone: NomeIconeMenu; descricao: string }[] = [
-  { id: "perfil", nome: "Perfil", icone: "perfil", descricao: "Como a Wae te chama e o que você procura." },
-  { id: "negocio", nome: "Meu negócio", icone: "negocio", descricao: "O seu negócio online. Ajuda a Wae a sugerir criativos e ideias perto do que você faz." },
-  { id: "assuntos", nome: "Assuntos", icone: "assuntos", descricao: "Os temas que aparecem primeiro para você e onde a Wae procura." },
+  { id: "perfil", nome: "Perfil", icone: "perfil", descricao: "Como a Cleo te chama e o que você procura." },
+  { id: "negocio", nome: "Meu negócio", icone: "negocio", descricao: "O seu negócio online. Ajuda a Cleo a sugerir criativos e ideias perto do que você faz." },
+  { id: "assuntos", nome: "Assuntos", icone: "assuntos", descricao: "Os temas que aparecem primeiro para você e onde a Cleo procura." },
   { id: "plano", nome: "Plano e uso", icone: "plano", descricao: "O seu plano e quanto você já usou neste mês." },
   { id: "conta", nome: "Conta", icone: "conta", descricao: "E-mail, senha e saída." },
-  { id: "conexoes", nome: "Conexões", icone: "conexoes", descricao: "Ferramentas que se ligam à Wae." },
+  { id: "conexoes", nome: "Conexões", icone: "conexoes", descricao: "Ferramentas que se ligam à Cleo." },
 ];
 
 const PERFIS = [
@@ -166,7 +166,7 @@ function PainelConfig({ eu }: { eu: Eu }) {
               <Linha titulo="Seu nome" dica="Aparece no seu perfil e no menu.">
                 <input className="campo" value={form.meuNome} onChange={(e) => muda("meuNome", e.target.value)} placeholder="Seu nome" maxLength={60} aria-label="Seu nome" />
               </Linha>
-              <Linha titulo="Aparência" dica="Escolha a cor da sua Wae e as cores principais do seu espaço.">
+              <Linha titulo="Aparência" dica="Escolha a cor da sua Cleo e as cores principais do seu espaço.">
                 <Link className="bt2 bt-p" href="/boas-vindas?editar=1&etapa=2&proximo=%2Fconfig">Personalizar cores<Icone nome="direita" tamanho={14}/></Link>
               </Linha>
               <Linha titulo="Sua identidade" dica="Seu identificador, descrição, contato e avatar.">
@@ -208,7 +208,7 @@ function PainelConfig({ eu }: { eu: Eu }) {
 
           {secao === "assuntos" && (
             <>
-              <Linha titulo="Assuntos" dica={form.nichos.length ? `${form.nichos.length} escolhido${form.nichos.length > 1 ? "s" : ""}` : "Nenhum escolhido: a Wae mostra de tudo."}>
+              <Linha titulo="Assuntos" dica={form.nichos.length ? `${form.nichos.length} escolhido${form.nichos.length > 1 ? "s" : ""}` : "Nenhum escolhido: a Cleo mostra de tudo."}>
                 <div className="chips">
                   {(nichos ?? []).filter((n) => n.id !== "outro").map((n) => {
                     const on = form.nichos.includes(n.id);

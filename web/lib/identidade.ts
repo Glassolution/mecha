@@ -12,7 +12,7 @@ export const AVATARES = [
 ] as const;
 export type AvatarId = typeof AVATARES[number]["id"];
 export const CORES_PERFIL = [
-  { id: "amarelo", nome: "Amarelo Wae", cor: "#f5cf32" },
+  { id: "amarelo", nome: "Amarelo Cleo", cor: "#f5cf32" },
   { id: "coral", nome: "Coral", cor: "#f18a6c" },
   { id: "salvia", nome: "Sálvia", cor: "#a3b38f" },
   { id: "azul", nome: "Azul", cor: "#72bbd0" },

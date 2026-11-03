@@ -1631,10 +1631,10 @@ button.fonte:hover { background: var(--surface); }
 .selo-fonte.instagram { background: radial-gradient(circle at 25% 110%, #fdd56e 0%, #fa7e1e 25%, #d62976 55%, #962fbf 80%, #4f5bd5 100%);
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.18); }
 
-/* Logo oficial da Wae, igual nos dois temas. */
+/* Logo oficial da Cleo, igual nos dois temas. */
 .logo-bru { display: block; object-fit: cover; border-radius: 22%; flex-shrink: 0; }
 
-/* Wae — identidade clara, preto e amarelo. */
+/* Cleo — identidade clara, preto e amarelo. */
 :root, :root[data-theme="light"] {
  --bg:#fafaf8; --surface:#fff; --surface-2:#f0f0eb; --sunk:#f4f4f0;
  --ink:#171815; --ink-2:#62635c; --ink-3:#76776f;
@@ -1784,7 +1784,7 @@ body { letter-spacing:-.015em; }
 .sidebar-atalho kbd { display:grid; place-items:center; margin:0; padding:0; width:17px; height:17px; border-radius:3.5px; background:#e5e5e5; color:#fff; font:600 10.5px/1 var(--f-ui),sans-serif; }
 .sidebar-item[aria-current="page"] .sidebar-atalho kbd { background:#a8a8a8; }
 
-/* Início: cartão do título com a Wae espiando, caixa de busca e sugestões por aba, sobre degradê pastel com amarelo. */
+/* Início: cartão do título com a Cleo espiando, caixa de busca e sugestões por aba, sobre degradê pastel com amarelo. */
 .app-moldura:has(.ini-heroi) { background:
     linear-gradient(180deg, rgba(246,246,247,0) 0, rgba(246,246,247,0) 420px, #f6f6f7 880px) top / 100% 880px no-repeat,
     radial-gradient(34% 520px at 22% 0, rgba(170,182,240,.5), transparent 70%) top / 100% 880px no-repeat,
@@ -1846,7 +1846,7 @@ body { letter-spacing:-.015em; }
  .ini-sugestoes-item > span { white-space:normal; }
 }
 
-/* Início: primeiros passos, com topo em degradê, a Wae no centro e tarefas em grupos. */
+/* Início: primeiros passos, com topo em degradê, a Cleo no centro e tarefas em grupos. */
 .app-moldura:has(.boas) { background:
     linear-gradient(180deg, rgba(251,251,250,0) 0, rgba(251,251,250,0) 280px, #fbfbfa 560px) top / 100% 560px no-repeat,
     radial-gradient(34% 420px at 22% 0, rgba(170,182,240,.42), transparent 70%) top / 100% 560px no-repeat,
@@ -2007,7 +2007,7 @@ body { letter-spacing:-.015em; }
  .boas-bru-inclina { transform:none; }
 }
 
-/* Wae em tricô: poses recortadas em PNG no lugar da marca antiga. */
+/* Cleo em tricô: poses recortadas em PNG no lugar da marca antiga. */
 .pose { display:block; height:auto; user-select:none; }
 .logo-bru, .sidebar-marca .logo-bru { border-radius:0; object-fit:contain; }
 .ini-cartaz-bru { width:120px; right:44px; bottom:-50px; filter:drop-shadow(0 14px 18px rgba(120,90,0,.2)); }
@@ -2161,7 +2161,7 @@ body:has(.res-topo) { background:#fafafa; }
 @keyframes eb-roda { to { transform:rotate(360deg); } }
 @keyframes eb-sinal { 0% { opacity:.8; transform:scale(.8); } 75%,100% { opacity:0; transform:scale(1.5); } }
 @keyframes eb-atividade { from { opacity:0; transform:translateY(3px); } to { opacity:1; transform:none; } }
-/* Mantido para a pose de pesquisa usada enquanto a Wae responde no chat. */
+/* Mantido para a pose de pesquisa usada enquanto a Cleo responde no chat. */
 @keyframes eb-investiga { 0%,12%,100% { transform:none; } 26%,40% { transform:translate(-2px,1px) rotate(-5deg); } 54% { transform:translate(0,-1px) rotate(1deg); } 68%,82% { transform:translate(2px,1px) rotate(4deg); } }
 @media (max-width:900px) {
  .res-busca > .res-ferramentas .res-ferramenta > span { display:none; }

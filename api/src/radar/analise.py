@@ -45,7 +45,7 @@ class Analise(BaseModel):
     primeiros_passos: list[str] = Field(description="3 passos práticos para validar em uma semana, cada um até 18 palavras.")
 
 
-SISTEMA = f"""Você é a Wae, analista de ideias de SaaS. Lê um vídeo curto que está em alta (TikTok ou Instagram) \
+SISTEMA = f"""Você é a Cleo, analista de ideias de SaaS. Lê um vídeo curto que está em alta (TikTok ou Instagram) \
 e mostra, em português do Brasil, que SaaS dá para criar a partir dele, pensando no nicho e no negócio de quem pergunta.
 
 Todo vídeo em alta é uma janela para um público: quem assiste, comenta e compartilha tem rotinas, dúvidas e \

@@ -100,7 +100,7 @@ function Entrar() {
     }
   }
 
-  const titulos = { entrar: "Boas-vindas à Wae", criar: "Seu próximo começo", esqueci: "Vamos recuperar sua senha" };
+  const titulos = { entrar: "Boas-vindas à Cleo", criar: "Seu próximo começo", esqueci: "Vamos recuperar sua senha" };
   const descricoes = { entrar: "Um lugar para encontrar ideias que merecem sair do papel. Entre e comece seu próximo garimpo.", criar: "Crie sua conta e encontre inspiração para o seu negócio. Grátis para começar, sem cartão.", esqueci: "Digite seu e-mail. Vamos enviar um link para você criar uma senha nova." };
   const slide = PREVIAS[previa];
 
@@ -135,7 +135,7 @@ function Entrar() {
                 </div>}
                 {erro && <p id="erro-login" className={styles.erro} role="alert">{erro}</p>}
                 <button className={styles.principal} disabled={!podeEnviar || (modo === "esqueci" && espera > 0)} type="submit">
-                  {enviando ? <><span className={styles.carregando} /> Um instante…</> : <>{{ entrar: "Entrar na Wae", criar: "Criar minha conta", esqueci: espera > 0 ? `Reenviar em ${espera} s` : "Enviar link de recuperação" }[modo]}<Icone nome="direita" tamanho={19} /></>}
+                  {enviando ? <><span className={styles.carregando} /> Um instante…</> : <>{{ entrar: "Entrar na Cleo", criar: "Criar minha conta", esqueci: espera > 0 ? `Reenviar em ${espera} s` : "Enviar link de recuperação" }[modo]}<Icone nome="direita" tamanho={19} /></>}
                 </button>
               </form>
               {modo === "esqueci" ? <button className={styles.voltar} onClick={() => trocar("entrar")} disabled={enviando}><Icone nome="voltar" tamanho={16} /> Voltar para entrar</button> : <>
@@ -146,13 +146,13 @@ function Entrar() {
             </>
           )}
         </div>
-        <footer className={styles.rodape}><span>Wae © {new Date().getFullYear()}</span><span><Icone nome="cadeado" tamanho={12} /> Seu espaço começa aqui</span></footer>
+        <footer className={styles.rodape}><span>Cleo © {new Date().getFullYear()}</span><span><Icone nome="cadeado" tamanho={12} /> Seu espaço começa aqui</span></footer>
       </section>
 
-      <aside className={styles.apresentacao} aria-label="Conheça a Wae">
+      <aside className={styles.apresentacao} aria-label="Conheça a Cleo">
         <PreviaInicio />
         <div className={styles.textoApresentacao} key={previa}><h2>{slide.titulo}</h2><p>{slide.texto}</p></div>
-        <div className={styles.paginacao} role="group" aria-label="Destaques da Wae">{PREVIAS.map((_, i) => <button key={i} onClick={() => setPrevia(i)} aria-label={`Ver destaque ${i + 1}`} aria-pressed={previa === i}><span /></button>)}</div>
+        <div className={styles.paginacao} role="group" aria-label="Destaques da Cleo">{PREVIAS.map((_, i) => <button key={i} onClick={() => setPrevia(i)} aria-label={`Ver destaque ${i + 1}`} aria-pressed={previa === i}><span /></button>)}</div>
       </aside>
     </main>
   );

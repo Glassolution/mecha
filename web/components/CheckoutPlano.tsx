@@ -111,7 +111,7 @@ export function CheckoutPlano({ plano, planoAtual, disponivel, fechar }: {
     plano.itens_completos === null ? "Todos os resultados completos" : `Até ${plano.itens_completos} resultados completos`,
     "Pesquisa no TikTok e Instagram",
     "Coleções para suas referências",
-    "Converse sobre vídeos com a Wae",
+    "Converse sobre vídeos com a Cleo",
   ];
 
   useEffect(() => {
@@ -167,7 +167,7 @@ export function CheckoutPlano({ plano, planoAtual, disponivel, fechar }: {
   return <form className={styles.checkout} onSubmit={enviar} aria-label={`Checkout do plano ${plano.nome}`}>
     <div className={styles.formulario}>
       {gratis || atual ? <section className={styles.estado}>
-        <Icone nome="check" tamanho={28}/><h3>{atual ? "Você já tem este plano" : "Seu primeiro passo com a Wae"}</h3>
+        <Icone nome="check" tamanho={28}/><h3>{atual ? "Você já tem este plano" : "Seu primeiro passo com a Cleo"}</h3>
         <p>{atual ? "Gerencie sua assinatura em Configurações → Plano e uso." : "Explore suas primeiras ideias com o plano Grátis, sem mensalidade."}</p>
       </section> : esperando ? <section className={styles.estado} aria-live="polite">
         <h3>{pix ? "Pague com Pix" : "Confirmando seu pagamento"}</h3>
@@ -223,7 +223,7 @@ export function CheckoutPlano({ plano, planoAtual, disponivel, fechar }: {
         </dl>
         {falha && <p className={styles.falha} role="alert">{falha}</p>}
         {gratis || atual ? <button type="button" className={styles.assinar} onClick={fechar}>Continuar com meu plano</button>
-          : esperando ? <button type="button" className={styles.assinar} onClick={fechar}>Voltar para a Wae</button>
+          : esperando ? <button type="button" className={styles.assinar} onClick={fechar}>Voltar para a Cleo</button>
           : pixPendente ? <button type="button" className={styles.assinar} onClick={verPix} disabled={enviando || !disponivel}>{enviando ? "Abrindo o Pix…" : "Ver o Pix"}</button>
           : <button type="submit" className={styles.assinar} disabled={enviando || !disponivel} aria-describedby={!disponivel ? `${id}-indisponivel` : undefined}>{enviando ? "Processando…" : viva ? `Trocar para o ${plano.nome}` : forma === "pix" ? "Gerar Pix e assinar" : "Assinar"}</button>}
         {!disponivel && !gratis && !atual && <p id={`${id}-indisponivel`} className={styles.indisponivel}>As assinaturas estarão disponíveis em breve.</p>}

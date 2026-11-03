@@ -1,7 +1,7 @@
 /** Só listas internas podem ser destino da seta; nunca outro vídeo ou um site externo. */
 export function origemDosVideos(valor?: string | null): string | null {
   if (!valor || !valor.startsWith("/") || /[\\\r\n]/.test(valor)) return null;
-  const base = "https://wae.local";
+  const base = "https://cleo.local";
   try {
     const url = new URL(valor, base);
     if (url.origin !== base || !/^\/(pesquisa|explorar|ideias|salvos(?:\/[a-zA-Z0-9_-]+)?|garimpo\/[a-zA-Z0-9_-]+)$/.test(url.pathname)) return null;

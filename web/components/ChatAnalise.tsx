@@ -45,13 +45,13 @@ export function ChatAnalise({ video }: { video: FichaVideo }) {
     }
   }
 
-  // vídeo ainda sem conversa nem análise: a Wae já começa a analisar, sem esperar um clique
+  // vídeo ainda sem conversa nem análise: a Cleo já começa a analisar, sem esperar um clique
   const comecou = useRef(false);
   const vazio = !carregando && !carregandoAnterior && !erroHistorico && salvas?.length === 0 && !anterior && !novas.length;
   useEffect(() => {
     if (!vazio || comecou.current || !eu) return; // espera o perfil para saber o modo
     comecou.current = true;
-    // o modo padrão vem do perfil (cadastro ou o seletor "Wae" do chat)
+    // o modo padrão vem do perfil (cadastro ou o seletor "Cleo" do chat)
     enviar(eu?.espaco.interesse === "achar_criativo" ? PERGUNTA_CRIATIVO : PERGUNTA_INICIAL);
   });
 

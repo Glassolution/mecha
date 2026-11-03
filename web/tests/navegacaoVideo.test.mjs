@@ -9,8 +9,8 @@ const {origemDosVideos,retornoDosVideos,rotaAssistir,rotaAnalisar} = await impor
 
 test("assistir, analisar e voltar preservam o garimpo exato mesmo quando o vídeo está em outra busca",()=>{
   const lista = "/garimpo/busca-original";
-  const player = new URL(rotaAssistir("tt:123",lista),"https://wae.local");
-  const analise = new URL(rotaAnalisar("tt:123",player.searchParams.get("origem")),"https://wae.local");
+  const player = new URL(rotaAssistir("tt:123",lista),"https://cleo.local");
+  const analise = new URL(rotaAnalisar("tt:123",player.searchParams.get("origem")),"https://cleo.local");
   assert.equal(player.pathname,"/video/tt%3A123");
   assert.equal(analise.pathname,"/video/tt%3A123/analise");
   assert.equal(retornoDosVideos(analise.searchParams.get("origem"),"busca-mais-nova"),lista);
@@ -33,6 +33,6 @@ test("retorno preserva listas e filtros sem repetir a entrada de uma busca nova"
 test("destinos externos, scripts, login e URLs de vídeo não entram no link de retorno",()=>{
   for(const invalida of ["https://outro.site", "//outro.site/garimpo/abc", "/\\outro.site/garimpo/abc", "javascript:alert(1)", "/entrar", "/video/x/analise", "/garimpo/a%2Fb", "/garimpo/abc\n", "/admin"]){
     assert.equal(origemDosVideos(invalida),null,invalida);
-    assert.equal(new URL(rotaAnalisar("tt:123",invalida),"https://wae.local").searchParams.has("origem"),false);
+    assert.equal(new URL(rotaAnalisar("tt:123",invalida),"https://cleo.local").searchParams.has("origem"),false);
   }
 });

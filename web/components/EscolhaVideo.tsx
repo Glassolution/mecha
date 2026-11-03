@@ -9,7 +9,7 @@ import { Icone } from "./Icone";
 /** Rotas das duas telas de um vídeo. */
 export { rotaAssistir, rotaAnalisar } from "@/lib/navegacaoVideo";
 
-/** Os dois botões que aparecem sobre a capa clicada: assistir o vídeo ou pedir a análise da Wae. */
+/** Os dois botões que aparecem sobre a capa clicada: assistir o vídeo ou pedir a análise da Cleo. */
 export function EscolhaVideo({ id, fechar, origem }: { id: string; fechar: () => void; origem?: string }) {
   const pathname = usePathname();
   const lista = origem ?? pathname;

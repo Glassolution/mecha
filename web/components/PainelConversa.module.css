@@ -179,7 +179,7 @@
   .oficina *, .oficina *::before, .oficina *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 
-/* seletor de modo da Wae (ideia de SaaS ou criativo): pílula e lista como a de escolher modelo */
+/* seletor de modo da Cleo (ideia de SaaS ou criativo): pílula e lista como a de escolher modelo */
 .modoMenu summary.bruPill { display: inline-flex; flex-direction: row; align-items: center; gap: 6px; width: auto; height: 32px; padding: 0 11px 0 7px; border: 0; border-radius: 999px; background: #f1f0eb; color: #2f2f2a; font-size: 12px; font-weight: 500; white-space: nowrap; cursor: pointer; }
 .modoMenu summary.bruPill:hover, .modoMenu[open] summary.bruPill { background: #e9e8e2; }
 .modoMenu summary.bruPill > svg:last-child { color: #9a9a91; }

@@ -86,7 +86,7 @@ export default function MontarGarimpo() {
   return (
     <>
       <h1 className="titulo-pagina">Garimpo</h1>
-      <p className="sub-pagina">Escolha palavras. A Wae busca cada uma no TikTok e no Instagram e mostra os vídeos chegando ao vivo.</p>
+      <p className="sub-pagina">Escolha palavras. A Cleo busca cada uma no TikTok e no Instagram e mostra os vídeos chegando ao vivo.</p>
 
       <div className="montar" style={{ marginTop: 28 }}>
         <section className="painel">
