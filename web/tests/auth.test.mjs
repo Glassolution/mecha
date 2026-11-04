@@ -22,7 +22,7 @@ test("login rejeita destinos externos, barras invertidas e ciclos na entrada", (
 // Para testar o proxy real com o servidor ligado: AUTH_TEST_URL=http://localhost:3000 node --test tests/auth.test.mjs
 const base = process.env.AUTH_TEST_URL;
 test("páginas internas redirecionam visitantes e preservam o destino", { skip: !base }, async () => {
-  for (const caminho of ["/", "/inicio", "/inicio?continuar=1", "/admin", "/pesquisa", "/ideias", "/garimpo/123", "/garimpo/123.png", "/salvos", "/estudio", "/config", "/boas-vindas", "/auth/nova-senha", "/auth/previa-cartoes-temp"]) {
+  for (const caminho of ["/inicio", "/inicio?continuar=1", "/admin", "/pesquisa", "/ideias", "/garimpo/123", "/garimpo/123.png", "/salvos", "/estudio", "/config", "/boas-vindas", "/auth/nova-senha", "/auth/previa-cartoes-temp"]) {
     const resposta = await fetch(new URL(caminho, base), { redirect: "manual" });
     assert.equal(resposta.status, 307, caminho);
     const destino = new URL(resposta.headers.get("location"), base);
@@ -41,7 +41,7 @@ test("API bloqueia visitantes, inclusive dados compartilhados e capas", { skip: 
 });
 
 test("login e marca continuam acessíveis e links inválidos voltam à entrada", { skip: !base }, async () => {
-  for (const caminho of ["/entrar", "/marca/bru.png"]) {
+  for (const caminho of ["/", "/entrar", "/marca/bru.png"]) {
     assert.equal((await fetch(new URL(caminho, base))).status, 200, caminho);
   }
   const resposta = await fetch(new URL("/auth/confirmar", base), { redirect: "manual" });

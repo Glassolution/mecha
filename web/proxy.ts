@@ -2,8 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { destinoSeguro } from "@/lib/auth";
 
-// Só a entrada e a confirmação do e-mail abrem sem uma sessão válida.
-const PUBLICAS = new Set(["/entrar", "/auth/confirmar"]);
+// A landing, a entrada e a confirmação do e-mail abrem sem uma sessão válida.
+const PUBLICAS = new Set(["/", "/entrar", "/auth/confirmar"]);
 
 /**
  * Antes de cada pedido: renova a sessão do Supabase (cookies), manda quem não entrou para /entrar e,
@@ -64,7 +64,6 @@ export async function proxy(request: NextRequest) {
   if (logado && pathname === "/entrar") {
     return finalizar(NextResponse.redirect(new URL(destinoSeguro(searchParams.get("proximo")), request.url)));
   }
-  if (pathname === "/") return finalizar(NextResponse.redirect(new URL("/inicio", request.url)));
   return finalizar(resposta);
 }
 
