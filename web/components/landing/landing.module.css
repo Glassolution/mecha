@@ -57,3 +57,42 @@
 .site { padding-top:78px; }
 .header { position:fixed; left:0; right:0; }
 @media(max-width:550px) { .site { padding-top:70px; } }
+
+/* Personagens complementares: movimento suave, sem competir com o conteúdo. */
+.mascoteCena { position:relative; width:152px; height:160px; margin:0 auto 25px; isolation:isolate; }
+.mascoteMovimento { position:relative; z-index:1; width:100%; height:100%; transform-origin:50% 90%; animation:cleoAcena 7s cubic-bezier(.45,0,.55,1) infinite; animation-play-state:paused; }
+.mascoteCena .mascoteMovimento img { display:block; width:100%; height:100%; object-fit:contain; margin:0; }
+.mascoteSombra { position:absolute; left:25%; right:25%; bottom:0; height:9px; background:#c6aa3e21; border-radius:50%; filter:blur(5px); animation:cleoSombra 7s ease-in-out infinite; animation-play-state:paused; }
+.mascoteCena[data-pose="pulando"] .mascoteMovimento { animation-name:cleoFlutua; }
+.mascoteCena[data-visivel="true"] .mascoteMovimento,.mascoteCena[data-visivel="true"] .mascoteSombra { animation-play-state:running; }
+@keyframes cleoAcena { 0%,100% { transform:translateY(0) rotate(-2deg); } 50% { transform:translateY(-5px) rotate(2deg); } }
+@keyframes cleoFlutua { 0%,100% { transform:translateY(-3px) rotate(-2deg); } 50% { transform:translateY(-12px) rotate(2deg); } }
+@keyframes cleoSombra { 0%,100% { transform:scaleX(1); opacity:.8; } 50% { transform:scaleX(.85); opacity:.5; } }
+@media(max-width:550px) { .mascoteCena { width:112px; height:120px; margin-bottom:21px; } }
+@media(prefers-reduced-motion:reduce) { .mascoteMovimento,.mascoteSombra { animation:none; } }
+/* Prévia: do vídeo do TikTok à análise da Cleo */
+.demoResposta { display:grid; grid-template-columns:92px auto 1fr; align-items:center; gap:11px; padding:12px; }
+.demoResposta > .demoVideo { position:relative; display:flex; flex-direction:column; justify-content:space-between; align-items:stretch; height:158px; border-radius:8px; padding:8px; color:#fff; overflow:hidden; box-shadow:0 6px 18px #00000020; }
+.demoVideo::after { content:""; position:absolute; inset:45% 0 0; background:linear-gradient(transparent,#000000a8); z-index:0; }
+.demoVideoTopo { display:flex; align-items:center; gap:3px; font-size:7px; font-weight:500; color:#fff; z-index:1; }
+.demoVideoPlay { position:absolute; top:50%; left:50%; translate:-50% -60%; width:30px; height:30px; border-radius:50%; background:#ffffff4d; backdrop-filter:blur(4px); display:grid; place-items:center; z-index:1; }
+.demoVideoInfo { z-index:1; display:grid; gap:3px; }
+.demoVideoInfo b { font-size:7px; font-weight:600; }
+.demoResposta .demoVideoInfo p { font-size:7px; line-height:1.35; color:#fff; margin:0; max-width:none; }
+.demoVideoInfo span { display:flex; align-items:center; gap:3px; font-size:6.5px; opacity:.85; }
+.demoSeta { color:#b89a2e; }
+.demoResposta > .demoAnalise { display:block; color:#222; font-size:inherit; min-width:0; }
+.demoAnaliseRotulo { display:flex; align-items:center; gap:5px; font-size:8.5px; color:#8a7525; }
+.demoResposta .demoAnalise h3 { font-size:15px; line-height:1.3; margin-top:7px; padding-right:0; }
+.demoComo { display:block; margin-top:10px; font-size:8px; color:#999; text-transform:uppercase; letter-spacing:.06em; }
+.demoAnalise ol { list-style:none; display:grid; gap:5px; margin-top:6px; padding:0; }
+.demoAnalise li { display:flex; align-items:center; gap:6px; font-size:9px; color:#555; }
+.demoAnalise li i { flex-shrink:0; width:14px; height:14px; border-radius:50%; background:#fff5c4; color:#6d581d; font-style:normal; font-size:7.5px; display:grid; place-items:center; }
+@media(min-width:1600px) { .demoResposta { grid-template-columns:104px auto 1fr; padding:14px; }.demoResposta > .demoVideo { height:178px; }.demoResposta .demoAnalise h3 { font-size:17px; }.demoAnalise li { font-size:10px; } }
+@media(max-width:550px) { .demoResposta { grid-template-columns:74px auto 1fr; gap:7px; padding:10px; }.demoResposta > .demoVideo { height:128px; padding:6px; }.demoVideoPlay { width:24px; height:24px; }.demoResposta .demoAnalise h3 { font-size:12.5px; margin-top:5px; }.demoAnaliseRotulo { font-size:7px; }.demoComo { font-size:6.5px; margin-top:7px; }.demoAnalise li { font-size:7.5px; }.demoAnalise li i { width:12px; height:12px; font-size:6.5px; } }
+/* Mais altura para caber o vídeo e a análise inteiros */
+.heroVisual { height:600px; }.demoResposta > .demoVideo { height:146px; }
+@media(min-width:1600px) { .heroVisual { height:640px; } }
+@media(max-width:1100px) { .heroVisual { height:570px; } }
+@media(max-width:850px) { .heroVisual { height:600px; } }
+@media(max-width:550px) { .heroVisual { height:500px; }.demoResposta > .demoVideo { height:124px; } }

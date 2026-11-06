@@ -243,6 +243,9 @@ function PainelConfig({ eu }: { eu: Eu }) {
                   <span><b>{eu.uso.garimpos}</b> de {eu.plano.garimpos}</span>
                 </div>
               </Linha>
+              <Linha titulo="Análises neste mês" dica="Análises concluídas de vídeos e oportunidades. Reabrir uma análise já pronta não conta novamente.">
+                <span>{eu.uso.analises ?? "—"} realizadas</span>
+              </Linha>
               <SecaoAssinatura eu={eu} />
             </>
           )}

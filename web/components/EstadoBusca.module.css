@@ -98,3 +98,5 @@
   .painel *, .painel *::after { animation: none !important; transition: none !important; }
   .carregando::after { width: 100%; background: linear-gradient(90deg,transparent,#7397d155,transparent); }
 }
+
+.contextoCompacto .sobreTitulo { font-size:12px; line-height:1.5; letter-spacing:.015em; color:#8c8e88; font-weight:400; }

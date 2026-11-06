@@ -101,7 +101,7 @@ export function EstadoBusca({ estado, termo, quantos, transcritos, segundos, ati
   if (ativo && compacto) return <section aria-label="Andamento da pesquisa">
     <div className={styles.linhaCompacta}>
       <span className={styles.mascoteCompacto} aria-hidden="true"><Pose nome="pesquisando" largura={42} /></span>
-      <div className={styles.contextoCompacto}><span className={styles.sobreTitulo}>BRU ESTÁ PESQUISANDO</span><span className={styles.situacaoCompacta} role="status"><i className={styles.spinner} aria-hidden="true" />{parando ? "Encerrando a pesquisa…" : aguardando ? "Preparando sua pesquisa…" : atual ? `Pesquisando no ${ferramenta(atual.fonte).nome}…` : rotulo}</span></div>
+      <div className={styles.contextoCompacto}><span className={styles.sobreTitulo}>Bru está pesquisando</span><span className={styles.situacaoCompacta} role="status"><i className={styles.spinner} aria-hidden="true" />{parando ? "Encerrando a pesquisa…" : aguardando ? "Preparando sua pesquisa…" : atual ? `Pesquisando no ${ferramenta(atual.fonte).nome}…` : rotulo}</span></div>
       <span className={styles.contagemCompacta}>{videos(quantos)} {quantos === 1 ? "encontrado" : "encontrados"}</span>
       <time className={styles.tempo} aria-label={`Tempo da pesquisa: ${duracao(segundos)}`}>{duracao(segundos)}</time>
       {aoParar && <button type="button" className={styles.parar} onClick={aoParar} disabled={parando}>{parando ? "Encerrando…" : "Parar"}</button>}

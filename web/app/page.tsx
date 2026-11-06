@@ -5,6 +5,7 @@ import { Icone } from "@/components/Icone";
 import { PreviaProduto } from "@/components/landing/PreviaProduto";
 import { Entrada, MenuMobile, RecursosCleo } from "@/components/landing/LandingInteracoes";
 import s from "@/components/landing/landing.module.css";
+import { MascoteLanding } from "@/components/landing/MascoteLanding";
 
 export const metadata: Metadata = {
   title:"Cleo — transforme referências em novas oportunidades",
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
 };
 const CRIAR = "/entrar?modo=criar";
 function Marca() {
-  return <Link href="/" className={s.marca} aria-label="Cleo, página inicial"><Image src="/marca/poses/logo.png" width={38} height={38} alt="" /><span>Cleo</span></Link>;
+  return <Link href="/" className={s.marca} aria-label="Cleo, página inicial"><Image src="/marca/cleo.png" width={38} height={38} alt="" /><span>Cleo</span></Link>;
 }
 export default function Landing() {
   return <div className={s.site}>
@@ -26,7 +27,7 @@ export default function Landing() {
 
       <Entrada className={`${s.fontes} ${s.container}`}><p>Um novo olhar para as referências do seu mercado.</p><div><span><Icone nome="tiktok" tamanho={23} />TikTok</span><span><Icone nome="instagram" tamanho={23} />Instagram</span><span className={s.fontesDivisor} /><span className={s.fontesLegenda}>Sua curiosidade.<br />A pesquisa da Cleo.</span></div></Entrada>
 
-      <section id="como-funciona" className={`${s.secao} ${s.container}`} aria-labelledby="como-titulo"><Entrada className={s.tituloCentral}><h2 id="como-titulo">Menos tempo procurando.<br />Mais espaço para criar.</h2><p>Do primeiro interesse à referência que vale guardar.<br />A Cleo conecta as etapas da sua pesquisa.</p><Link className={s.botao} href={CRIAR}>Começar uma pesquisa <Icone nome="direita" tamanho={16} /></Link></Entrada><Entrada><RecursosCleo /></Entrada></section>
+      <section id="como-funciona" className={`${s.secao} ${s.container}`} aria-labelledby="como-titulo"><Entrada className={s.tituloCentral}><MascoteLanding pose="acenando" /><h2 id="como-titulo">Menos tempo procurando.<br />Mais espaço para criar.</h2><p>Do primeiro interesse à referência que vale guardar.<br />A Cleo conecta as etapas da sua pesquisa.</p><Link className={s.botao} href={CRIAR}>Começar uma pesquisa <Icone nome="direita" tamanho={16} /></Link></Entrada><Entrada><RecursosCleo /></Entrada></section>
 
       <section id="para-voce" className={`${s.secao} ${s.container}`} aria-labelledby="para-titulo"><Entrada className={s.tituloCentral}><h2 id="para-titulo">Uma ferramenta.<br />Novas formas de começar.</h2><p>Para encontrar o que construir ou uma nova maneira<br />de apresentar o que você já criou.</p></Entrada><div className={s.casos}>
         <Entrada className={s.caso}><div className={s.casoArte}><div className={s.cartaoIdeia}><span><Icone nome="ideia" tamanho={20} />A próxima ideia</span><h3>Todo bom produto<br />começa com<br />um problema.</h3><div><span>Um nicho</span><Icone nome="direita" tamanho={13} /><span>Uma possibilidade</span></div></div><div className={s.cartaoTras} /></div><div className={s.casoTexto}><h3>Encontre uma ideia de SaaS</h3><p>Explore ferramentas, necessidades e oportunidades em um mercado que desperta a sua curiosidade. Aprofunde os resultados com análises de IA.</p><Link className={s.link} href={CRIAR}>Explorar oportunidades <Icone nome="direita" tamanho={15} /></Link></div></Entrada>
@@ -43,7 +44,7 @@ export default function Landing() {
         <details><summary>Posso começar gratuitamente?<Icone nome="mais" tamanho={19} /></summary><p>Sim. Crie sua conta para começar no plano gratuito. Você acompanha os limites e o consumo de pesquisas e análises dentro da plataforma, em Plano e uso.</p></details>
       </div></section>
 
-      <section className={s.ctaFinal} aria-labelledby="cta-titulo"><Entrada><Image src="/marca/poses/logo.png" width={82} height={82} alt="Cleo" /><h2 id="cta-titulo">Sua próxima ideia<br />começa com uma busca.</h2><p>Encontre novas possibilidades com a Cleo.</p><Link className={s.botao} href={CRIAR}>Começar grátis <Icone nome="direita" tamanho={16} /></Link></Entrada></section>
+      <section className={s.ctaFinal} aria-labelledby="cta-titulo"><Entrada><MascoteLanding pose="pulando" /><h2 id="cta-titulo">Sua próxima ideia<br />começa com uma busca.</h2><p>Encontre novas possibilidades com a Cleo.</p><Link className={s.botao} href={CRIAR}>Começar grátis <Icone nome="direita" tamanho={16} /></Link></Entrada></section>
     </main>
     <footer className={`${s.rodape} ${s.container}`}><div><Marca /><p>Um novo olhar para o que vem a seguir.</p></div><nav aria-label="Links do rodapé"><a href="#como-funciona">Como funciona</a><a href="#recursos">Recursos</a><a href="#duvidas">Dúvidas</a><Link href="/entrar">Entrar na Cleo <Icone nome="diagonal" tamanho={13} /></Link></nav><span>Cleo © 2026</span></footer>
   </div>;

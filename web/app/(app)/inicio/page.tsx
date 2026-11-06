@@ -1,158 +1,75 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useState } from "react";
 import { useApi } from "@/lib/api";
-import type { Colecao } from "@/lib/tipos";
+import type { Colecao, Garimpo } from "@/lib/tipos";
+import { num } from "@/lib/fmt";
 import { useApp } from "@/components/Contexto";
 import { Icone } from "@/components/Icone";
-import { MascoteBoasVindas } from "@/components/MascoteBoasVindas";
+import styles from "./inicio.module.css";
 
-type Tarefa = { id: string; titulo: string; texto: string; icone: string; href: string; feita: boolean };
-type GarimpoResumo = { id: string; termos: string[]; fontes: string[] };
-const TAREFAS_POR_PAGINA = 3;
+import { RadarInicio, type DadosRadar } from "./RadarInicio";
 
-/** Primeiros passos: cada tarefa se marca sozinha pelo que a pessoa já fez na conta. */
 export default function Inicio() {
-  const [paginaEscolhida, setPaginaEscolhida] = useState<number | null>(null);
-  const [direcao, setDirecao] = useState(1);
-  const paginaRef = useRef<HTMLDivElement>(null);
-  const animacoes = useRef<Animation[]>([]);
-  const transicao = useRef(0);
-  const { eu, pronto } = useApp();
-  const { dados: garimpos } = useApi<GarimpoResumo[]>(eu ? "/api/garimpos?limite=50" : null);
-  const { dados: colecoes } = useApi<Colecao[]>(eu ? "/api/colecoes" : null);
-
-  const lista = garimpos ?? [];
-  const salvos = (colecoes ?? []).reduce((soma, c) => soma + c.itens, 0);
-  const grupos: { nome: string; tarefas: Tarefa[] }[] = [
-    { nome: "Começar", tarefas: [
-      { id: "conta", titulo: "Criar sua conta", texto: "Para guardar suas buscas e ideias", icone: "usuario",
-        href: "/entrar?modo=criar&proximo=%2Finicio", feita: !!eu },
-      { id: "quiz", titulo: "Contar o que você procura", texto: "A Cleo acerta mais quando conhece seus nichos", icone: "alvo",
-        href: "/boas-vindas?proximo=%2Finicio", feita: !!eu?.espaco.boas_vindas_ok },
-      { id: "saas", titulo: "Contar qual é o seu SaaS", texto: "Nome e o que ele faz, para ideias perto do seu negócio", icone: "maleta",
-        href: "/config#negocio", feita: !!eu?.meu_saas?.nome },
-    ] },
-    { nome: "Explorar a Cleo", tarefas: [
-      { id: "garimpo", titulo: "Fazer seu primeiro garimpo", texto: "Busque um nicho no TikTok e no Instagram", icone: "radar",
-        href: "/pesquisa", feita: lista.length > 0 || (eu?.uso.garimpos ?? 0) > 0 },
-      { id: "palavras", titulo: "Garimpar 3 palavras de uma vez", texto: "Separe por vírgula, como “app para médicos, clínica, consultório”", icone: "busca",
-        href: "/pesquisa", feita: lista.some((g) => g.termos.length >= 3) },
-      { id: "fontes", titulo: "Buscar no TikTok e no Instagram juntos", texto: "Escolha “Todas” nas fontes da Pesquisa", icone: "globo",
-        href: "/pesquisa", feita: lista.some((g) => g.fontes.includes("tiktok") && g.fontes.includes("instagram")) },
-      { id: "salvar", titulo: "Separar 3 vídeos para análise", texto: "Salve os vídeos que quer estudar com calma", icone: "salvo",
-        href: lista[0] ? `/garimpo/${lista[0].id}` : "/ideias", feita: salvos >= 3 },
-      { id: "colecoes", titulo: "Organizar em 2 coleções", texto: "Uma por nicho ou por tipo de vídeo", icone: "pacote",
-        href: "/salvos", feita: (colecoes?.length ?? 0) >= 2 },
-    ] },
+  const { eu, pronto, recarregarEu } = useApp();
+  useEffect(() => { void recarregarEu(); }, [recarregarEu]);
+  const [dias, setDias] = useState<7 | 30>(7);
+  const { dados: garimpos, erro: erroGarimpos, carregando: carregandoGarimpos } = useApi<Garimpo[]>(eu ? "/api/garimpos?limite=3" : null, { atualizarAoInvalidar: true });
+  const { dados: colecoes } = useApi<Colecao[]>(eu ? "/api/colecoes" : null, { atualizarAoInvalidar: true });
+  const { dados: painel, erro, carregando, recarregar } = useApi<DadosRadar>(eu ? `/api/publico/painel?dias=${dias}` : null);
+  const nome = eu?.conta.nome && !eu.conta.nome.includes("@") ? eu.conta.nome.trim().split(/\s+/)[0] : null;
+  const uso = eu?.uso.garimpos ?? 0;
+  const limite = eu?.plano.garimpos ?? 0;
+  const proporcao = limite > 0 ? Math.min(uso / limite, 1) : 0;
+  const salvos = colecoes?.reduce((total, colecao) => total + colecao.itens, 0);
+  const passos = [
+    { titulo: "Personalize seu perfil", texto: "Conte à Cleo o que você procura.", href: "/boas-vindas?proximo=%2Finicio", feita: !!eu?.espaco.boas_vindas_ok, icone: "usuario" },
+    { titulo: "Faça uma pesquisa", texto: "Encontre sua próxima oportunidade.", href: "/pesquisa", feita: uso > 0 || !!garimpos?.length, icone: "busca" },
+    { titulo: "Guarde uma inspiração", texto: "Salve um vídeo para explorar depois.", href: "/salvos", feita: (salvos ?? 0) > 0, icone: "salvo" },
   ];
-  const tarefas = grupos.flatMap((g) => g.tarefas);
-  const feitas = tarefas.filter((t) => t.feita).length;
-  const proxima = tarefas.find((t) => !t.feita);
-  const totalPaginas = Math.ceil(tarefas.length / TAREFAS_POR_PAGINA);
-  const paginaInicial = Math.floor(Math.max(0, tarefas.findIndex((t) => !t.feita)) / TAREFAS_POR_PAGINA);
-  const pagina = paginaEscolhida ?? paginaInicial;
-  const inicio = pagina * TAREFAS_POR_PAGINA;
-  const tarefasVisiveis = tarefas.slice(inicio, inicio + TAREFAS_POR_PAGINA);
-  const primeiroNome = eu?.conta.nome && !eu.conta.nome.includes("@") ? eu.conta.nome.trim().split(/\s+/)[0] : null;
-
-  useEffect(() => () => {
-    transicao.current++;
-    animacoes.current.forEach((animacao) => animacao.cancel());
-  }, []);
-
-  async function mudarPagina(destino: number) {
-    if (destino < 0 || destino >= totalPaginas) return;
-    const vez = ++transicao.current;
-    animacoes.current.forEach((animacao) => animacao.cancel());
-    if (destino === pagina) return;
-    const sentido = destino > pagina ? 1 : -1;
-    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      const linhas = paginaRef.current?.querySelectorAll(".boas-grupo h2, .boas-tarefa") ?? [];
-      animacoes.current = Array.from(linhas, (linha, indice) => linha.animate([
-        { opacity: 1, transform: "translateX(0)" },
-        { opacity: 0, transform: `translateX(${-sentido * 14}px)` },
-      ], { duration: 110, delay: indice * 12, easing: "cubic-bezier(.4,0,1,1)", fill: "forwards" }));
-      await Promise.all(animacoes.current.map((animacao) => animacao.finished.catch(() => {})));
-    }
-    if (vez !== transicao.current) return;
-    setDirecao(sentido);
-    setPaginaEscolhida(destino);
-  }
+  const concluidos = passos.filter((p) => p.feita).length;
+  const esperando = carregando || !pronto;
 
   return (
-    <div className="boas">
-      <div className="boas-fundo" aria-hidden="true" />
+    <div className={styles.painel}>
+      <div className={styles.breadcrumb}><Icone nome="inicio" tamanho={15} /><span>Meu workspace</span><span>/</span><b>Visão geral</b></div>
+      <header className={styles.cabecalho}>
+        <div><div className={styles.saudacao}>Seu ponto de partida</div><h1>{nome ? `Bom te ver, ${nome}.` : "Seu próximo insight começa aqui."}</h1><p>Acompanhe suas pesquisas e descubra o que está chamando atenção.</p></div>
+        <Link className={styles.primario} href="/pesquisa"><Icone nome="mais" tamanho={16} /> Nova pesquisa</Link>
+      </header>
 
-      <div className="boas-topo">
-        <MascoteBoasVindas />
-        <h1>{primeiroNome ? `Boas-vindas, ${primeiroNome}!` : "Boas-vindas à Cleo!"}</h1>
-        <p>Vamos deixar tudo pronto para você achar sua próxima ideia em poucos passos.</p>
-      </div>
-
-      <div className="boas-cartao">
-        <div className="boas-cartao-topo">
-          <span>Seus primeiros passos</span>
-          <span className="boas-contagem">{pronto ? `${feitas} de ${tarefas.length}` : ""}</span>
-          <span className="boas-barra" role="progressbar" aria-label="Tarefas feitas" aria-valuemin={0} aria-valuemax={tarefas.length} aria-valuenow={feitas}>
-            <i style={{ width: `${(feitas / tarefas.length) * 100}%` }} />
-          </span>
-        </div>
-        <div id="boas-tarefas" className="boas-pagina" aria-live="polite" aria-atomic="true" ref={paginaRef}>
-        <div key={pagina} className="boas-folha" style={{ "--sentido": direcao } as CSSProperties}>
-        <span className="oculto">Página {pagina + 1} de {totalPaginas}. Tarefas {inicio + 1} a {inicio + tarefasVisiveis.length}.</span>
-        {grupos.map((g) => ({ ...g, visiveis: g.tarefas.filter((t) => tarefasVisiveis.includes(t)) })).filter((g) => g.visiveis.length > 0).map((g) => (
-          <section key={g.nome} className="boas-grupo" aria-label={g.nome}>
-            <h2>{g.nome}<span>{g.tarefas.filter((t) => t.feita).length}/{g.tarefas.length}</span></h2>
-            <ol className="boas-lista">
-              {g.visiveis.map((t) => {
-                const principal = pronto && t.id === proxima?.id;
-                return (
-                  <li key={t.id} data-tarefa={t.id} style={{ "--linha": tarefasVisiveis.indexOf(t) } as CSSProperties} className={`boas-tarefa${t.feita ? " feita" : ""}${principal ? " atual" : ""}`}>
-                    <span className="boas-tarefa-icone" aria-hidden="true"><Icone nome={t.feita ? "check" : t.icone} tamanho={14} traco={1.8} /></span>
-                    <span className="boas-tarefa-texto">
-                      <b>{t.titulo}</b>
-                      <span>{t.texto}</span>
-                    </span>
-                    {t.feita ? (
-                      <span className="boas-feito"><Icone nome="check" tamanho={11} traco={2.4} /> Feito</span>
-                    ) : (
-                      <Link href={t.href} className={`boas-bt${principal ? " principal" : ""}`}>
-                        {principal ? "Começar" : "Fazer"}{principal && <Icone nome="direita" tamanho={12} traco={2.2} />}
-                      </Link>
-                    )}
-                  </li>
-                );
-              })}
-            </ol>
-          </section>
-        ))}
-        </div>
-        </div>
-        <nav className="boas-paginacao" aria-label="Páginas das tarefas">
-          <button type="button" className="boas-bt" disabled={pagina === 0} onClick={() => mudarPagina(pagina - 1)} aria-controls="boas-tarefas" aria-label="Página anterior">
-            <Icone nome="voltar" tamanho={13} /><span>Anterior</span>
-          </button>
-          <div className="boas-paginas" style={{ "--pagina": pagina } as CSSProperties}>
-            {Array.from({ length: totalPaginas }, (_, indice) => (
-              <button key={indice} type="button" className="boas-bt" aria-label={`Página ${indice + 1}`} aria-current={pagina === indice ? "page" : undefined} aria-controls="boas-tarefas" onClick={() => mudarPagina(indice)}>
-                {indice + 1}
-              </button>
-            ))}
+      <section className={styles.metricas} aria-label="Resumo da sua conta">
+        <article className={`${styles.cartao} ${styles.uso}`}>
+          <div className={styles.usoCorpo}>
+          <div className={styles.rotulo}><span><Icone nome="grafico" tamanho={18} /> Uso do seu plano</span><span className={styles.selo}>{eu?.plano.nome ?? "Seu plano"}</span></div>
+          <div className={styles.usoPercentual}>{eu ? `${Math.round(proporcao * 100)}%` : "—"}<span> das pesquisas</span></div>
+          <div className={styles.segmentos} role="progressbar" aria-label="Pesquisas usadas no mês" aria-valuemin={0} aria-valuemax={limite || 1} aria-valuenow={uso} aria-valuetext={`${uso} de ${limite} pesquisas usadas`}>
+            {Array.from({ length: 44 }, (_, i) => <i key={i} className={i < Math.ceil(proporcao * 44) ? styles.preenchido : undefined} />)}
           </div>
-          <button type="button" className="boas-bt" disabled={pagina === totalPaginas - 1} onClick={() => mudarPagina(pagina + 1)} aria-controls="boas-tarefas" aria-label="Próxima página">
-            <span>Próxima</span><Icone nome="direita" tamanho={13} />
-          </button>
-        </nav>
-      </div>
+          <p className={styles.usoDetalhe}>{eu ? `${uso} de ${limite} pesquisas utilizadas` : "Seu consumo aparece aqui"}</p>
+          <div className={styles.usoAnalises} title="Análises de vídeos e de oportunidades concluídas neste mês. Reabrir uma análise não conta novamente."><span>Análises realizadas</span><b>{eu?.uso.analises == null ? "—" : num(eu.uso.analises)}</b></div>
+          </div>
+          <div className={styles.usoRodape}><span>{eu ? `${Math.max(0, limite - uso)} pesquisas disponíveis neste mês` : "Acompanhe seu uso mensal"}</span><Link href="/config#plano">Ver plano <Icone nome="diagonal" tamanho={13} /></Link></div>
+        </article>
+        <article className={styles.cartao}>
+          <div className={styles.rotulo}><span><Icone nome="salvo" tamanho={17} /> Inspirações salvas</span></div>
+          <div className={styles.numero}>{salvos === undefined ? "—" : num(salvos)}<span> itens</span></div>
+          <p className={styles.legendaMetrica}>Boas referências para suas próximas ideias.</p>
+          <div className={styles.rodapeMetrica}><span>Sua biblioteca pessoal</span><Link href="/salvos">Abrir salvos <Icone nome="diagonal" tamanho={13} /></Link></div>
+        </article>
+        <article className={styles.cartao}>
+          <div className={styles.rotulo}><span><Icone nome="pacote" tamanho={17} /> Suas coleções</span></div>
+          <div className={styles.numero}>{colecoes ? num(colecoes.length) : "—"}<span> coleções</span></div>
+          <p className={styles.legendaMetrica}>Cada descoberta no seu lugar.</p>
+          <div className={styles.rodapeMetrica}><span>Organize por nicho ou projeto</span><Link href="/salvos">Organizar <Icone nome="diagonal" tamanho={13} /></Link></div>
+        </article>
+      </section>
 
-      {pronto && !proxima && (
-        <div className="boas-pronto">
-          <span>Tudo pronto. Agora é com você.</span>
-          <Link href="/pesquisa" className="boas-bt principal">Ir para a Pesquisa</Link>
-        </div>
-      )}
+      <div className={styles.divisor} />
+      <RadarInicio dados={painel} dias={dias} mudarDias={setDias} carregando={esperando} erro={!!erro} recarregar={() => void recarregar()} garimpos={garimpos} carregandoGarimpos={carregandoGarimpos || !pronto} erroGarimpos={!!erroGarimpos} />
+
+      {concluidos < passos.length && <section className={styles.primeiros}><div className={styles.primeirosTopo}><span><Icone nome="bussola" tamanho={17} /><h2>Deixe a Cleo com a sua cara</h2></span><span>{concluidos} de {passos.length} passos</span></div><div className={styles.passos}>{passos.map((p, i) => <Link href={p.href} key={p.titulo} className={p.feita ? styles.feito : undefined}><span className={styles.passoNumero}>{p.feita ? <Icone nome="check" tamanho={14} /> : `0${i + 1}`}</span><span><b>{p.titulo}</b><small>{p.texto}</small></span><Icone nome={p.feita ? "check" : "diagonal"} tamanho={15} /></Link>)}</div></section>}
     </div>
   );
 }

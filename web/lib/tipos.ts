@@ -132,7 +132,7 @@ export type Eu = {
   /** o negócio online da pessoa (SaaS, app, loja, infoproduto…) */
   meu_saas: { nome: string; tipo: "saas" | "app" | "ecommerce" | "infoproduto" | "servico" | "marketplace" | "conteudo" | "outro" | null; link: string | null; o_que_faz: string | null } | null;
   plano: { id: string; nome: string; garimpos: number };
-  uso: { garimpos: number; planos_ideia: number };
+  uso: { garimpos: number; planos_ideia: number; analises: number };
   /** a assinatura mais recente (Asaas); o plano só muda quando o Asaas confirma o pagamento */
   assinatura: Assinatura | null;
 };

@@ -32,7 +32,7 @@ def _publico(e: dict, u: dict, meu_saas: dict | None, assinatura: dict | None = 
         },
         "meu_saas": meu_saas,
         "plano": {"id": e["plano"], "nome": plano["nome"], "garimpos": plano["garimpos"]},
-        "uso": {"garimpos": u["garimpos"], "planos_ideia": u["planos_ideia"]},
+        "uso": {"garimpos": u["garimpos"], "planos_ideia": u["planos_ideia"], "analises": u["analises"]},
         "assinatura": assinatura,
     }
 

@@ -70,6 +70,14 @@ export default function Pesquisa() {
   const termos = separarTermos(texto);
   const abaAtual = ABAS_SUGESTAO.find((a) => a.id === aba) ?? ABAS_SUGESTAO[0];
 
+  // O radar prepara o tema; a pesquisa só é executada quando a pessoa envia.
+  useEffect(() => {
+    const nicho = new URLSearchParams(location.search).get("nicho")?.trim().slice(0, 160);
+    if (!nicho) return;
+    const tempo = setTimeout(() => { setTexto(nicho); campo.current?.focus(); }, 0);
+    return () => clearTimeout(tempo);
+  }, []);
+
   useEffect(() => {
     const atalho = (e: KeyboardEvent) => {
       if (e.key === "/" && document.activeElement?.tagName !== "TEXTAREA" && document.activeElement?.tagName !== "INPUT") {

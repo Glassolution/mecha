@@ -18,8 +18,19 @@ def mes_atual() -> date:
 
 
 async def uso(espaco_id) -> dict:
-    r = await db.um("select * from uso where espaco_id = %s and mes = %s", (espaco_id, mes_atual()))
-    return r or {"garimpos": 0, "planos_ideia": 0, "creditos_video": 0, "downloads": 0}
+    mes = mes_atual()
+    r = await db.um("select * from uso where espaco_id = %s and mes = %s", (espaco_id, mes))
+    analises = await db.um(
+        """select
+          (select count(*) from analises_video where espaco_id = %s
+           and criado_em >= %s and criado_em < %s::date + interval '1 month')
+          + (select count(*) from oportunidades_garimpo where espaco_id = %s
+           and status = 'pronto' and resultado is not null
+           and atualizado_em >= %s and atualizado_em < %s::date + interval '1 month') as total""",
+        (espaco_id, mes, mes, espaco_id, mes, mes),
+    )
+    return {**(r or {"garimpos": 0, "planos_ideia": 0, "creditos_video": 0, "downloads": 0}),
+            "analises": analises["total"]}
 
 
 async def gastar_garimpo(espaco: dict) -> None:
