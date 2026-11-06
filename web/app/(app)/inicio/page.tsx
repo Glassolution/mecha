@@ -43,24 +43,24 @@ export default function Inicio() {
         <article className={`${styles.cartao} ${styles.uso}`}>
           <div className={styles.usoCorpo}>
           <div className={styles.rotulo}><span><Icone nome="grafico" tamanho={18} /> Uso do seu plano</span><span className={styles.selo}>{eu?.plano.nome ?? "Seu plano"}</span></div>
-          <div className={styles.usoPercentual}>{eu ? `${Math.round(proporcao * 100)}%` : "—"}<span> das pesquisas</span></div>
+          <div className={styles.usoPercentual}>{`${Math.round(proporcao * 100)}%`}<span> das pesquisas</span></div>
           <div className={styles.segmentos} role="progressbar" aria-label="Pesquisas usadas no mês" aria-valuemin={0} aria-valuemax={limite || 1} aria-valuenow={uso} aria-valuetext={`${uso} de ${limite} pesquisas usadas`}>
             {Array.from({ length: 44 }, (_, i) => <i key={i} className={i < Math.ceil(proporcao * 44) ? styles.preenchido : undefined} />)}
           </div>
           <p className={styles.usoDetalhe}>{eu ? `${uso} de ${limite} pesquisas utilizadas` : "Seu consumo aparece aqui"}</p>
-          <div className={styles.usoAnalises} title="Análises de vídeos e de oportunidades concluídas neste mês. Reabrir uma análise não conta novamente."><span>Análises realizadas</span><b>{eu?.uso.analises == null ? "—" : num(eu.uso.analises)}</b></div>
+          <div className={styles.usoAnalises} title="Análises de vídeos e de oportunidades concluídas neste mês. Reabrir uma análise não conta novamente."><span>Análises realizadas</span><b>{num(eu?.uso.analises ?? 0)}</b></div>
           </div>
           <div className={styles.usoRodape}><span>{eu ? `${Math.max(0, limite - uso)} pesquisas disponíveis neste mês` : "Acompanhe seu uso mensal"}</span><Link href="/config#plano">Ver plano <Icone nome="diagonal" tamanho={13} /></Link></div>
         </article>
         <article className={styles.cartao}>
           <div className={styles.rotulo}><span><Icone nome="salvo" tamanho={17} /> Inspirações salvas</span></div>
-          <div className={styles.numero}>{salvos === undefined ? "—" : num(salvos)}<span> itens</span></div>
+          <div className={styles.numero}>{num(salvos ?? 0)}<span> itens</span></div>
           <p className={styles.legendaMetrica}>Boas referências para suas próximas ideias.</p>
           <div className={styles.rodapeMetrica}><span>Sua biblioteca pessoal</span><Link href="/salvos">Abrir salvos <Icone nome="diagonal" tamanho={13} /></Link></div>
         </article>
         <article className={styles.cartao}>
           <div className={styles.rotulo}><span><Icone nome="pacote" tamanho={17} /> Suas coleções</span></div>
-          <div className={styles.numero}>{colecoes ? num(colecoes.length) : "—"}<span> coleções</span></div>
+          <div className={styles.numero}>{num(colecoes?.length ?? 0)}<span> coleções</span></div>
           <p className={styles.legendaMetrica}>Cada descoberta no seu lugar.</p>
           <div className={styles.rodapeMetrica}><span>Organize por nicho ou projeto</span><Link href="/salvos">Organizar <Icone nome="diagonal" tamanho={13} /></Link></div>
         </article>
