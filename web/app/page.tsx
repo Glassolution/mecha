@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 };
 const CRIAR = "/entrar?modo=criar";
 function Marca() {
-  return <Link href="/" className={s.marca} aria-label="Cleo, página inicial"><Image src="/marca/cleo.png" width={38} height={38} alt="" /><span>Cleo</span></Link>;
+  return <Link href="/" className={s.marca} aria-label="Cleo, página inicial"><Image src="/marca/cleo-icone.png" width={38} height={38} alt="" /><span>Cleo</span></Link>;
 }
 export default function Landing() {
   return <div className={s.site}>

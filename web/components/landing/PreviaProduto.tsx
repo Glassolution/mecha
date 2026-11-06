@@ -26,9 +26,9 @@ export function PreviaProduto() {
   const exemplo = EXEMPLOS[nicho];
   return <div className={s.heroVisual} aria-label="Demonstração ilustrativa da Cleo">
     <div className={s.luzHero} aria-hidden="true" />
-    <div className={s.promptFlutuante}><span><Image src="/marca/cleo.png" width={30} height={30} alt="" /></span><p>Encontre {modo === 'ideia' ? 'uma oportunidade de SaaS' : 'uma referência de anúncio'} no nicho de <b>{exemplo.nome.toLocaleLowerCase('pt-BR')}.</b></p></div>
+    <div className={s.promptFlutuante}><span><Image src="/marca/cleo-icone.png" width={30} height={30} alt="" /></span><p>Encontre {modo === 'ideia' ? 'uma oportunidade de SaaS' : 'uma referência de anúncio'} no nicho de <b>{exemplo.nome.toLocaleLowerCase('pt-BR')}.</b></p></div>
     <div className={s.demoJanela}>
-      <div className={s.demoMarca}><Image src="/marca/cleo.png" width={31} height={31} alt="" /><b>Cleo</b><span>Seu espaço para descobrir</span></div>
+      <div className={s.demoMarca}><Image src="/marca/cleo-icone.png" width={31} height={31} alt="" /><b>Cleo</b><span>Seu espaço para descobrir</span></div>
       <div className={s.demoConteudo}>
         <div className={s.demoAbas} role="group" aria-label="Objetivo da demonstração"><button aria-pressed={modo === 'ideia'} onClick={() => setModo('ideia')}><Icone nome="ideia" tamanho={14} />Ideias de SaaS</button><button aria-pressed={modo === 'criativo'} onClick={() => setModo('criativo')}><Icone nome="claquete" tamanho={14} />Criativos</button></div>
         <div className={s.demoBusca}><Icone nome="busca" tamanho={16} /><span>{exemplo.termo}</span><Icone nome="direita" tamanho={16} /></div>
@@ -41,7 +41,7 @@ export function PreviaProduto() {
           </div>
           <Icone nome="direita" tamanho={14} className={s.demoSeta} />
           <div className={s.demoAnalise}>
-            <div className={s.demoAnaliseRotulo}><Image src="/marca/cleo.png" width={16} height={16} alt="" /><span>{modo === 'ideia' ? 'A Cleo encontrou neste vídeo' : 'A Cleo viu neste vídeo'}</span></div>
+            <div className={s.demoAnaliseRotulo}><Image src="/marca/cleo-icone.png" width={16} height={16} alt="" /><span>{modo === 'ideia' ? 'A Cleo encontrou neste vídeo' : 'A Cleo viu neste vídeo'}</span></div>
             <h3>{modo === 'ideia' ? exemplo.ideia : exemplo.criativo}</h3>
             <span className={s.demoComo}>{modo === 'ideia' ? 'Como criar o SaaS' : 'Como montar o criativo'}</span>
             <ol>{(modo === 'ideia' ? exemplo.passos : PASSOS_CRIATIVO).map((p, i) => <li key={p}><i>{i + 1}</i>{p}</li>)}</ol>
