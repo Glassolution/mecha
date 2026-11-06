@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, useApi } from "@/lib/api";
+import { ErroApi, api, useApi } from "@/lib/api";
 import { supabaseNavegador } from "@/lib/supabase/cliente";
 import type { Colecao, Eu } from "@/lib/tipos";
 import { BuscaK } from "./BuscaK";
@@ -30,32 +30,41 @@ const ABAS = [
 const CORES_PASTA = ["#e07b39", "#4caf6a", "#4a8fe0", "#a066d8", "#e0b930"];
 
 /** Sem sessão do Supabase no navegador nem pergunta à API (evita 401 para visitantes). */
-async function carregarEu(): Promise<Eu | null> {
+async function carregarEu(): Promise<{ eu: Eu | null; logado: boolean }> {
   const { data } = await supabaseNavegador().auth.getSession();
-  if (!data.session) return null;
-  return api<Eu>("/api/eu", { silencioso: true });
+  if (!data.session) return { eu: null, logado: false };
+  try {
+    return { eu: await api<Eu>("/api/eu", { silencioso: true }), logado: true };
+  } catch (e) {
+    // 401 = sessão vencida: é visitante. Outro erro = servidor fora do ar, mas a pessoa continua logada.
+    if (e instanceof ErroApi && e.status === 401) return { eu: null, logado: false };
+    throw e;
+  }
 }
 
-/** Quem está logado. Sem login (visitante no Início), devolve eu = null sem mandar para /entrar. */
+type EstadoEu = { eu: Eu | null; logado: boolean; pronto: boolean };
+
+/** Quem está logado. Sem login (visitante no Início), devolve eu = null sem mandar para /entrar.
+ * Se o servidor falhar com a sessão aberta, não mostra a pessoa como visitante e tenta de novo. */
 function useEu() {
-  const [estado, setEstado] = useState<{ eu: Eu | null; pronto: boolean }>({ eu: null, pronto: false });
+  const [estado, setEstado] = useState<EstadoEu>({ eu: null, logado: false, pronto: false });
+  const tentativa = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recarregar = useCallback(async () => {
-    try {
-      const eu = await carregarEu();
-      setEstado({ eu, pronto: true });
-    } catch {
-      setEstado({ eu: null, pronto: true });
-    }
+    const tentar = async (vez: number) => {
+      if (tentativa.current) clearTimeout(tentativa.current);
+      try {
+        setEstado({ ...(await carregarEu()), pronto: true });
+      } catch {
+        setEstado({ eu: null, logado: true, pronto: true });
+        if (vez < 5) tentativa.current = setTimeout(() => void tentar(vez + 1), Math.min(2000 * 2 ** vez, 30000));
+      }
+    };
+    await tentar(0);
   }, []);
   useEffect(() => {
-    let vivo = true;
-    carregarEu()
-      .then((eu) => vivo && setEstado({ eu, pronto: true }))
-      .catch(() => vivo && setEstado({ eu: null, pronto: true }));
-    return () => {
-      vivo = false;
-    };
-  }, []);
+    const t = setTimeout(() => void recarregar(), 0);
+    return () => { clearTimeout(t); if (tentativa.current) clearTimeout(tentativa.current); };
+  }, [recarregar]);
   return { ...estado, recarregar };
 }
 
@@ -67,8 +76,8 @@ function ativa(pathname: string, href: string) {
 export function Moldura({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { eu, pronto, recarregar } = useEu();
-  const visitante = pronto && !eu;
+  const { eu, logado, pronto, recarregar } = useEu();
+  const visitante = pronto && !eu && !logado;
   const [buscaAberta, setBuscaAberta] = useState(false);
   const [planosAberto, setPlanosAberto] = useState(false);
   // outras telas (Configurações → Plano e uso) abrem os planos com window.dispatchEvent(new Event("abrir-planos"))
