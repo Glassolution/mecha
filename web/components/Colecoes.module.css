@@ -109,7 +109,7 @@
 .pastaNome b { font-size:13px; font-weight:500; color:#686952; overflow-wrap:anywhere; }
 .pastaNome small { color:#969b82; font-size:11px; }
 .selecao { display:grid; place-items:center; flex:none; width:19px; height:19px; border:1px solid #dfdfd0; border-radius:6px; color:#80691a; background:#fff; }
-.pastaLinha[aria-pressed="true"] .selecao { background:#f5d34e; border-color:#e5c649; }
+.pastaLinha[aria-pressed="true"] .selecao { background:var(--principal,#f5cf32); border-color:var(--principal-borda,#e0cf7e); }
 .carregando { display:grid; gap:8px; padding:5px 0; }
 .carregando span { height:56px; border-radius:9px; }
 .pastasVazias { padding:14px 10px 24px; text-align:center; }

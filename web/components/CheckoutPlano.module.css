@@ -13,7 +13,7 @@
 .metodos button:disabled { cursor:wait; opacity:.6; }
 .iconePix { color:#299d8f; }
 .selecaoMetodo { display:grid; place-items:center; flex:none; width:16px; height:16px; margin-left:auto; border:1px solid #d4d4d4; border-radius:50%; background:#fff; color:transparent; }
-.metodos button[aria-pressed="true"] .selecaoMetodo { border-color:#ddbe55; background:#f3d15d; color:#352d16; }
+.metodos button[aria-pressed="true"] .selecaoMetodo { border-color:var(--principal-borda,#e0cf7e); background:var(--principal,#f5cf32); color:#352d16; }
 @media (max-width:420px) {
  .metodos { gap:8px; grid-template-columns:1.55fr 1fr; }
  .metodos button { padding:11px 10px; gap:7px; font-size:13px; }

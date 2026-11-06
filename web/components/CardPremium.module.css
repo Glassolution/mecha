@@ -3,8 +3,8 @@
 .conteudo h2 { margin:0; color:#10111b; font-size:14px; line-height:1.45; font-weight:600; letter-spacing:-.025em; }
 .conteudo p { margin:14px 0 21px; color:#65656e; font-size:11.5px; line-height:1.65; font-weight:400; }
 .conteudo p > span { display:block; }
-.acao { display:inline-flex; align-items:center; justify-content:center; min-width:132px; max-width:100%; min-height:39px; padding:9px 23px; border:0; border-radius:999px; background:linear-gradient(180deg,#ffe268,#f5cf32); color:#10111b; font-size:12px; line-height:1.5; font-weight:500; transition:background 160ms,transform 160ms; }
-.acao:hover { background:linear-gradient(180deg,#ffdb49,#eac127); }
+.acao { display:inline-flex; align-items:center; justify-content:center; min-width:132px; max-width:100%; min-height:39px; padding:9px 23px; border:0; border-radius:999px; background:linear-gradient(180deg,color-mix(in srgb,var(--principal,#f5cf32),white 25%),var(--principal,#f5cf32)); color:#10111b; font-size:12px; line-height:1.5; font-weight:500; transition:background 160ms,transform 160ms; }
+.acao:hover { background:linear-gradient(180deg,var(--principal,#f5cf32),var(--principal-hover,#ffdb5c)); }
 .acao:active { transform:translateY(1px); }
 .acao:focus-visible { outline:2px solid #a17b00; outline-offset:4px; }
 @media (max-height:740px) { .conteudo { padding:22px 10px 19px; } .conteudo p { margin:12px 0 18px; } }
