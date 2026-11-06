@@ -151,7 +151,7 @@ export default function Pesquisa() {
       <section className="ini-heroi">
         <Revela i={0} className="ini-cartaz">
           <h1 className="ini-cartaz-titulo">Grandes <b>ideias</b> começam com <b>curiosidade</b></h1>
-          <Pose nome="pensando" largura={150} className="ini-cartaz-bru" />
+          <Pose nome="acenando" largura={150} className="ini-cartaz-bru" />
         </Revela>
 
         <Revela i={1} className="ini-caixa-envoltorio">
