@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field, field_validator
 from radar import db, fluxo, garimpo, sessao
 from radar.biblioteca import SELECT_VIDEO, cartao
 from radar.coleta.regras import normalizar_termo
+from radar.interpretar import expandir_todos
 from radar.config import config
 from radar.nichos import palavras as sugerir_palavras
 from radar.planos import gastar_garimpo
@@ -78,15 +79,17 @@ def _resumo(g: dict) -> dict:
 @r.post("/garimpos")
 async def criar(dados: NovoGarimpo, e=Depends(sessao.atual)):
     fontes = [f for f in dados.fontes if f in garimpo.FONTES] or ["tiktok"]
+    # pedidos escritos ("encontrar saas de medicina") viram buscas variadas da área
+    termos = expandir_todos(dados.termos, dados.modo)
     termos_idioma = {normalizar_termo(k): v for k, v in dados.termos_idioma.items()}
     idiomas = dados.idiomas
     if config().so_portugues:  # toda palavra é buscada no Brasil, em português
-        idiomas, termos_idioma = ["pt"], {t: "pt" for t in dados.termos}
+        idiomas, termos_idioma = ["pt"], {t: "pt" for t in termos}
     await gastar_garimpo(e)
     g = await db.um(
         """insert into garimpos (espaco_id, modo, termos, termos_idioma, fontes, idiomas, criterios, por_fonte)
            values (%s, %s, %s, %s, %s, %s, %s, %s) returning id""",
-        (e["id"], dados.modo, dados.termos, json.dumps(termos_idioma), fontes, idiomas,
+        (e["id"], dados.modo, termos, json.dumps(termos_idioma), fontes, idiomas,
          json.dumps(dados.criterios), json.dumps({f: {"status": "na_fila"} for f in fontes})),
     )
     await (await fila()).enqueue_job("rodar_garimpo", str(g["id"]), _job_id=f"garimpo:{g['id']}")
