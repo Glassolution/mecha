@@ -33,6 +33,14 @@ async def uso(espaco_id) -> dict:
             "analises": analises["total"]}
 
 
+async def devolver_garimpo(espaco_id, quando: date) -> None:
+    """Devolve um garimpo ao mês em que ele foi contado (pesquisa que falhou sem trazer nada)."""
+    await db.executar(
+        "update uso set garimpos = greatest(garimpos - 1, 0) where espaco_id = %s and mes = %s",
+        (espaco_id, quando.replace(day=1)),
+    )
+
+
 async def gastar_garimpo(espaco: dict) -> None:
     """Confere e conta um garimpo do mês. Acabou: 402 com o texto do botão."""
     limite = PLANOS[espaco["plano"]]["garimpos"]

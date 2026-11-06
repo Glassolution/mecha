@@ -88,6 +88,19 @@ async def test_erro_da_fonte_aparece_com_o_motivo(cliente):
     assert g["por_fonte"]["youtube"]["status"] == "trancada"
 
 
+async def test_pesquisa_que_falha_sem_trazer_nada_nao_gasta_o_limite(cliente):
+    async def usados():
+        r = await db.um("select coalesce(sum(garimpos), 0) as n from uso")
+        return r["n"]
+
+    antes = await usados()
+    gid = await _criar(cliente)
+    assert await usados() == antes + 1
+    await garimpo.rodar(gid, {"tiktok": ColetorSimulado(erro=ErroFonte("As buscas do TikTok estão pausadas no momento."))})
+    assert (await cliente.get(f"/api/garimpos/{gid}")).json()["status"] == "erro"
+    assert await usados() == antes
+
+
 async def test_envio_parcial_nunca_apaga_campo():
     async with db.conexao() as con:
         assert await gravar_video(con, video_simulado(1), "ai tool") is True

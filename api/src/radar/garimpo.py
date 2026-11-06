@@ -20,6 +20,7 @@ from radar.coleta.regras import escrita_nao_latina, idiomas_do_termo
 from radar.config import config
 from radar.fluxo import publicar
 from radar.nichos import EQUIVALENTE_EN
+from radar.planos import devolver_garimpo
 
 log = logging.getLogger(__name__)
 
@@ -259,6 +260,9 @@ async def rodar(garimpo_id: str, coletores: dict[str, Coletor]) -> None:
            returning status, vistos, transcritos, com_saas, ideias_novas, fracos""",
         (final, gid),
     )
+    if c and final == "erro" and not c["vistos"] and g.get("espaco_id"):
+        # nenhuma fonte trouxe nada: a pesquisa não conta no limite do mês
+        await devolver_garimpo(g["espaco_id"], g["criado_em"].date())
     if c:
         await publicar(gid, "fim", c)
 

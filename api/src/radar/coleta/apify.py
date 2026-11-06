@@ -4,11 +4,13 @@ O token fica só no servidor. Cada busca é uma execução do actor; o Parar abo
 """
 
 import asyncio
+import logging
 
 import httpx
 
 from radar.coleta.base import DeveParar, ErroFonte, Parado
 
+log = logging.getLogger(__name__)
 API = "https://api.apify.com/v2"
 
 
@@ -66,7 +68,9 @@ class ApifyBase:
             if r.status_code == 401:
                 raise ErroFonte(f"A conexão com o provedor do {self.rotulo} não foi aceita. Avise o suporte.")
             if r.status_code in (402, 403):
-                raise ErroFonte(f"O limite de buscas do {self.rotulo} deste mês acabou.")
+                # o crédito do provedor acabou: é um limite nosso, não da pessoa
+                log.error("provedor do %s recusou a busca (%s): %s", self.rotulo, r.status_code, r.text[:300])
+                raise ErroFonte(f"As buscas do {self.rotulo} estão pausadas no momento. Tente de novo mais tarde.")
             if r.status_code == 429 or r.status_code >= 500:
                 await asyncio.sleep(2**tentativa)
                 continue
